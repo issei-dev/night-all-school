@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ナイト・オール・スクール - 近未来学園ターン制RPG" />
+  <title>ナイト・オール・スクール</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- タイトル画面 -->
+    <section id="screen-title" class="screen active" aria-labelledby="game-title">
+      <div class="hero-bg"></div>
+      <div class="screen-inner title-layout">
+        <p class="eyebrow">Cloudflare Pages / Git 連携版 MVP</p>
+        <h1 id="game-title">ナイト・オール・スクール</h1>
+        <p class="subtitle">
+          星導防衛学園を舞台に、REAVERに立ち向かう近未来学園ターン制RPG
+        </p>
+
+        <div class="title-card">
+          <div class="status-row">
+            <span>学校名</span>
+            <strong>星導防衛学園</strong>
+          </div>
+          <div class="status-row">
+            <span>女神</span>
+            <strong>始原の女神ルクシア</strong>
+          </div>
+          <div class="status-row">
+            <span>敵総称</span>
+            <strong>REAVER（レイヴァー）</strong>
+          </div>
+        </div>
+
+        <div class="button-group large">
+          <button class="menu-button primary" data-action="start">ゲーム開始</button>
+          <button class="menu-button" data-action="load">つづきから</button>
+          <button class="menu-button" data-action="settings">設定</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- メインメニュー -->
+    <section id="screen-menu" class="screen" aria-labelledby="menu-title">
+      <div class="screen-inner">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Main Menu</p>
+            <h2 id="menu-title">メインメニュー</h2>
+          </div>
+          <button class="text-button" data-back="title">タイトルへ戻る</button>
+        </header>
+
+        <div class="menu-grid">
+          <button class="panel-button" data-screen="adventure">
+            <span class="panel-title">冒険</span>
+            <span class="panel-desc">ストーリー進行 / バトル</span>
+          </button>
+          <button class="panel-button" data-screen="formation">
+            <span class="panel-title">編成</span>
+            <span class="panel-desc">メンバー / 武器 / 女神</span>
+          </button>
+          <button class="panel-button" data-screen="bond">
+            <span class="panel-title">交流</span>
+            <span class="panel-desc">会話 / 友情 / 聖獣</span>
+          </button>
+          <button class="panel-button" data-screen="gacha">
+            <span class="panel-title">ガチャ</span>
+            <span class="panel-desc">武器ガチャ / コア消費</span>
+          </button>
+        </div>
+
+        <div class="info-card">
+          <h3>開発メモ（初期表示）</h3>
+          <ul>
+            <li>初期プレイアブルは1年生3名のみ</li>
+            <li>表示ステータスは HP / ATK のみ</li>
+            <li>武器は 4本装備（主人公+メンバー3人）</li>
+            <li>ストーリーは第1章から開始</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 冒険 -->
+    <section id="screen-adventure" class="screen" aria-labelledby="adventure-title">
+      <div class="screen-inner">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Adventure</p>
+            <h2 id="adventure-title">冒険</h2>
+          </div>
+          <button class="text-button" data-back="menu">メニューへ戻る</button>
+        </header>
+
+        <div class="info-card">
+          <h3>第1章　光に選ばれた夜</h3>
+          <ol class="story-list">
+            <li>ストーリー1-1：世界観と現在の状況</li>
+            <li>ストーリー1-2：1年生チームとの出会い</li>
+            <li>バトル1-1：最初の戦い</li>
+            <li>ストーリー1-3：次の戦いへ</li>
+            <li>バトル1-2：雑魚戦</li>
+            <li>バトル1-3：中ボス戦</li>
+          </ol>
+          <p class="muted">※ ここは次に story.json を読み込んで実データ化します。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 編成 -->
+    <section id="screen-formation" class="screen" aria-labelledby="formation-title">
+      <div class="screen-inner">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Formation</p>
+            <h2 id="formation-title">編成</h2>
+          </div>
+          <button class="text-button" data-back="menu">メニューへ戻る</button>
+        </header>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>バトルメンバー</h3>
+            <ul>
+              <li>朝霧トワ</li>
+              <li>火ノ宮ヒナノ</li>
+              <li>風早スズ</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>主人公</h3>
+            <ul>
+              <li>表示名：主人公</li>
+              <li>一人称：俺</li>
+              <li>女神：始原の女神ルクシア</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>装備ルール</h3>
+            <ul>
+              <li>主人公 + メンバー3人 = 武器4本</li>
+              <li>武器スキルはパーティ全体に適用</li>
+              <li>同系統スキルは合算・段階昇格</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 交流 -->
+    <section id="screen-bond" class="screen" aria-labelledby="bond-title">
+      <div class="screen-inner">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Bond</p>
+            <h2 id="bond-title">交流</h2>
+          </div>
+          <button class="text-button" data-back="menu">メニューへ戻る</button>
+        </header>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>友情段階</h3>
+            <ul>
+              <li>知り合い</li>
+              <li>友人</li>
+              <li>仲良し</li>
+              <li>親友</li>
+              <li>大親友 / 恋人</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>実装予定</h3>
+            <p>会話 / 友情値 / 聖獣育成</p>
+            <p class="muted">プレゼント詳細は後続実装予定</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ガチャ -->
+    <section id="screen-gacha" class="screen" aria-labelledby="gacha-title">
+      <div class="screen-inner">
+        <header class="section-header">
+          <div>
+            <p class="eyebrow">Gacha</p>
+            <h2 id="gacha-title">ガチャ</h2>
+          </div>
+          <button class="text-button" data-back="menu">メニューへ戻る</button>
+        </header>
+
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>武器ガチャ</h3>
+            <ul>
+              <li>単発：マテリアルコア 5個</li>
+              <li>10連：マテリアルコア 50個</li>
+              <li>★1：60% / ★2：30% / ★3：10%</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>重複時</h3>
+            <ul>
+              <li>既存武器の +値が上昇</li>
+              <li>MVP上限：+5</li>
+              <li>+1ごとに HP / ATK が 1.2倍</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
