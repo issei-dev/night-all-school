@@ -1,0 +1,1054 @@
+{
+  "meta": {
+    "gameTitle": "ナイト・オール・スクール",
+    "version": "mvp-v1.2",
+    "weaponStats": [
+      "hp",
+      "atk"
+    ],
+    "rarityRules": {
+      "1": {
+        "hp": 0,
+        "atk": 20,
+        "skillCount": 1
+      },
+      "2": {
+        "hp": 20,
+        "atk": 50,
+        "skillCount": 1
+      },
+      "3": {
+        "hp": 50,
+        "atk": 100,
+        "skillCount": 2
+      }
+    },
+    "gachaRates": {
+      "1": 0.6,
+      "2": 0.3,
+      "3": 0.1
+    },
+    "singleCost": 5,
+    "tenCost": 50,
+    "duplicateRule": "同一weaponIdは別所持せず plus +1",
+    "overflowRefund": {
+      "1": 1,
+      "2": 3,
+      "3": 10
+    },
+    "partyWeaponRule": {
+      "equipSlots": 4,
+      "members": [
+        "protagonist",
+        "member1",
+        "member2",
+        "member3"
+      ],
+      "applyTarget": "party",
+      "sameSkillRule": "同段階2つで1段階上へ昇格",
+      "examples": [
+        "攻撃力アップ（小）1本 = ATK +5%",
+        "攻撃力アップ（小）2本 = 攻撃力アップ（中） = ATK +20%",
+        "攻撃力アップ（中）2本 = 攻撃力アップ（大） = ATK +50%"
+      ]
+    },
+    "partySkillDefs": {
+      "atkUp": {
+        "displayName": "攻撃力アップ",
+        "tiers": {
+          "small": {
+            "value": 0.05,
+            "label": "小"
+          },
+          "middle": {
+            "value": 0.2,
+            "label": "中"
+          },
+          "large": {
+            "value": 0.5,
+            "label": "大"
+          }
+        },
+        "target": "party",
+        "affectedStat": "atk",
+        "stackRule": "同段階2つで1段階上へ昇格"
+      },
+      "hpUp": {
+        "displayName": "体力アップ",
+        "tiers": {
+          "small": {
+            "value": 0.05,
+            "label": "小"
+          },
+          "middle": {
+            "value": 0.2,
+            "label": "中"
+          },
+          "large": {
+            "value": 0.5,
+            "label": "大"
+          }
+        },
+        "target": "party",
+        "affectedStat": "hp",
+        "stackRule": "同段階2つで1段階上へ昇格"
+      }
+    },
+    "weaponTypeRules": {
+      "sword": {
+        "displayName": "剣",
+        "role": "標準バランス型",
+        "attackProfile": {
+          "hitCount": 1,
+          "ratePerHit": 1.0,
+          "totalRate": 1.0
+        }
+      },
+      "katana": {
+        "displayName": "刀",
+        "role": "高火力・会心寄り",
+        "attackProfile": {
+          "hitCount": 1,
+          "ratePerHit": 1.0,
+          "totalRate": 1.0
+        }
+      },
+      "dagger": {
+        "displayName": "短剣",
+        "role": "高速・多段・ゲージ回収",
+        "attackProfile": {
+          "hitCount": 2,
+          "ratePerHit": 0.6,
+          "totalRate": 1.2
+        }
+      },
+      "axe": {
+        "displayName": "斧",
+        "role": "重撃・高ATK型",
+        "attackProfile": {
+          "hitCount": 1,
+          "ratePerHit": 1.0,
+          "totalRate": 1.0
+        }
+      },
+      "spear": {
+        "displayName": "槍",
+        "role": "単体突破・安定火力",
+        "attackProfile": {
+          "hitCount": 1,
+          "ratePerHit": 1.0,
+          "totalRate": 1.0
+        }
+      },
+      "bow": {
+        "displayName": "弓",
+        "role": "安定・後衛向け",
+        "attackProfile": {
+          "hitCount": 1,
+          "ratePerHit": 1.0,
+          "totalRate": 1.0
+        }
+      },
+      "gun": {
+        "displayName": "銃",
+        "role": "万能・扱いやすい",
+        "attackProfile": {
+          "hitCount": 1,
+          "ratePerHit": 1.0,
+          "totalRate": 1.0
+        }
+      },
+      "staff": {
+        "displayName": "杖",
+        "role": "支援・回復向け",
+        "attackProfile": {
+          "hitCount": 1,
+          "ratePerHit": 1.0,
+          "totalRate": 1.0
+        }
+      }
+    }
+  },
+  "weapons": [
+    {
+      "id": "wp_sword_001",
+      "name": "訓練用ブレード",
+      "rarity": 1,
+      "weaponType": "sword",
+      "weaponTypeDisplay": "剣",
+      "role": "標準バランス型",
+      "baseStats": {
+        "hp": 0,
+        "atk": 25
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "扱いやすい標準型の武器。攻撃面を無難に底上げする。"
+    },
+    {
+      "id": "wp_sword_002",
+      "name": "戦術剣・青鋼",
+      "rarity": 2,
+      "weaponType": "sword",
+      "weaponTypeDisplay": "剣",
+      "role": "標準バランス型",
+      "baseStats": {
+        "hp": 20,
+        "atk": 55
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "扱いやすい標準型の武器。攻撃面を無難に底上げする。"
+    },
+    {
+      "id": "wp_sword_003",
+      "name": "星導剣アステリオン",
+      "rarity": 3,
+      "weaponType": "sword",
+      "weaponTypeDisplay": "剣",
+      "role": "標準バランス型",
+      "baseStats": {
+        "hp": 50,
+        "atk": 105
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "扱いやすい標準型の武器。攻撃面を無難に底上げする。"
+    },
+    {
+      "id": "wp_katana_001",
+      "name": "訓練刀・朧",
+      "rarity": 1,
+      "weaponType": "katana",
+      "weaponTypeDisplay": "刀",
+      "role": "高火力・会心寄り",
+      "baseStats": {
+        "hp": 0,
+        "atk": 28
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "鋭い一撃で敵を断つ高火力寄りの武器。"
+    },
+    {
+      "id": "wp_katana_002",
+      "name": "機巧刀・夜叉",
+      "rarity": 2,
+      "weaponType": "katana",
+      "weaponTypeDisplay": "刀",
+      "role": "高火力・会心寄り",
+      "baseStats": {
+        "hp": 20,
+        "atk": 58
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "鋭い一撃で敵を断つ高火力寄りの武器。"
+    },
+    {
+      "id": "wp_katana_003",
+      "name": "神断刀・焔月",
+      "rarity": 3,
+      "weaponType": "katana",
+      "weaponTypeDisplay": "刀",
+      "role": "高火力・会心寄り",
+      "baseStats": {
+        "hp": 50,
+        "atk": 108
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "鋭い一撃で敵を断つ高火力寄りの武器。"
+    },
+    {
+      "id": "wp_dagger_001",
+      "name": "実習短剣・風切",
+      "rarity": 1,
+      "weaponType": "dagger",
+      "weaponTypeDisplay": "短剣",
+      "role": "高速・多段・ゲージ回収",
+      "baseStats": {
+        "hp": 0,
+        "atk": 15
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 2,
+        "ratePerHit": 0.6,
+        "totalRate": 1.2
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "手数とテンポに優れる多段型の武器。"
+    },
+    {
+      "id": "wp_dagger_002",
+      "name": "蒼影の短剣",
+      "rarity": 2,
+      "weaponType": "dagger",
+      "weaponTypeDisplay": "短剣",
+      "role": "高速・多段・ゲージ回収",
+      "baseStats": {
+        "hp": 20,
+        "atk": 45
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 2,
+        "ratePerHit": 0.6,
+        "totalRate": 1.2
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "手数とテンポに優れる多段型の武器。"
+    },
+    {
+      "id": "wp_dagger_003",
+      "name": "疾風双牙",
+      "rarity": 3,
+      "weaponType": "dagger",
+      "weaponTypeDisplay": "短剣",
+      "role": "高速・多段・ゲージ回収",
+      "baseStats": {
+        "hp": 50,
+        "atk": 95
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 2,
+        "ratePerHit": 0.6,
+        "totalRate": 1.2
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "手数とテンポに優れる多段型の武器。"
+    },
+    {
+      "id": "wp_axe_001",
+      "name": "訓練斧・砕",
+      "rarity": 1,
+      "weaponType": "axe",
+      "weaponTypeDisplay": "斧",
+      "role": "重撃・高ATK型",
+      "baseStats": {
+        "hp": 10,
+        "atk": 32
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "重い一撃で押し切る高ATK型の武器。"
+    },
+    {
+      "id": "wp_axe_002",
+      "name": "重装斧バルガ",
+      "rarity": 2,
+      "weaponType": "axe",
+      "weaponTypeDisplay": "斧",
+      "role": "重撃・高ATK型",
+      "baseStats": {
+        "hp": 30,
+        "atk": 62
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "重い一撃で押し切る高ATK型の武器。"
+    },
+    {
+      "id": "wp_axe_003",
+      "name": "巨断斧グラディウム",
+      "rarity": 3,
+      "weaponType": "axe",
+      "weaponTypeDisplay": "斧",
+      "role": "重撃・高ATK型",
+      "baseStats": {
+        "hp": 60,
+        "atk": 112
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "重い一撃で押し切る高ATK型の武器。"
+    },
+    {
+      "id": "wp_spear_001",
+      "name": "訓練槍・突",
+      "rarity": 1,
+      "weaponType": "spear",
+      "weaponTypeDisplay": "槍",
+      "role": "単体突破・安定火力",
+      "baseStats": {
+        "hp": 5,
+        "atk": 30
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "単体への突破力に優れた安定武器。"
+    },
+    {
+      "id": "wp_spear_002",
+      "name": "戦列槍ランサル",
+      "rarity": 2,
+      "weaponType": "spear",
+      "weaponTypeDisplay": "槍",
+      "role": "単体突破・安定火力",
+      "baseStats": {
+        "hp": 25,
+        "atk": 60
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "単体への突破力に優れた安定武器。"
+    },
+    {
+      "id": "wp_spear_003",
+      "name": "貫星槍ヴァルレイド",
+      "rarity": 3,
+      "weaponType": "spear",
+      "weaponTypeDisplay": "槍",
+      "role": "単体突破・安定火力",
+      "baseStats": {
+        "hp": 55,
+        "atk": 110
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "単体への突破力に優れた安定武器。"
+    },
+    {
+      "id": "wp_bow_001",
+      "name": "訓練弓・遠矢",
+      "rarity": 1,
+      "weaponType": "bow",
+      "weaponTypeDisplay": "弓",
+      "role": "安定・後衛向け",
+      "baseStats": {
+        "hp": 0,
+        "atk": 20
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "後衛向けの安定型。体力面の補助とも相性が良い。"
+    },
+    {
+      "id": "wp_bow_002",
+      "name": "制圧弓アルク",
+      "rarity": 2,
+      "weaponType": "bow",
+      "weaponTypeDisplay": "弓",
+      "role": "安定・後衛向け",
+      "baseStats": {
+        "hp": 20,
+        "atk": 50
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "後衛向けの安定型。体力面の補助とも相性が良い。"
+    },
+    {
+      "id": "wp_bow_003",
+      "name": "天影弓セレス",
+      "rarity": 3,
+      "weaponType": "bow",
+      "weaponTypeDisplay": "弓",
+      "role": "安定・後衛向け",
+      "baseStats": {
+        "hp": 50,
+        "atk": 100
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "後衛向けの安定型。体力面の補助とも相性が良い。"
+    },
+    {
+      "id": "wp_gun_001",
+      "name": "実習銃・Mk1",
+      "rarity": 1,
+      "weaponType": "gun",
+      "weaponTypeDisplay": "銃",
+      "role": "万能・扱いやすい",
+      "baseStats": {
+        "hp": 0,
+        "atk": 25
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "癖が少なく、幅広い役割に合わせやすい。"
+    },
+    {
+      "id": "wp_gun_002",
+      "name": "戦術銃ファルク",
+      "rarity": 2,
+      "weaponType": "gun",
+      "weaponTypeDisplay": "銃",
+      "role": "万能・扱いやすい",
+      "baseStats": {
+        "hp": 20,
+        "atk": 55
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "癖が少なく、幅広い役割に合わせやすい。"
+    },
+    {
+      "id": "wp_gun_003",
+      "name": "光裂銃ゼノブレイク",
+      "rarity": 3,
+      "weaponType": "gun",
+      "weaponTypeDisplay": "銃",
+      "role": "万能・扱いやすい",
+      "baseStats": {
+        "hp": 50,
+        "atk": 105
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "atkUp",
+          "displayName": "攻撃力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "癖が少なく、幅広い役割に合わせやすい。"
+    },
+    {
+      "id": "wp_staff_001",
+      "name": "術式杖・雫",
+      "rarity": 1,
+      "weaponType": "staff",
+      "weaponTypeDisplay": "杖",
+      "role": "支援・回復向け",
+      "baseStats": {
+        "hp": 5,
+        "atk": 15
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "支援寄りの武器。体力底上げとの相性が良い。"
+    },
+    {
+      "id": "wp_staff_002",
+      "name": "癒光杖ルミナ",
+      "rarity": 2,
+      "weaponType": "staff",
+      "weaponTypeDisplay": "杖",
+      "role": "支援・回復向け",
+      "baseStats": {
+        "hp": 25,
+        "atk": 45
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 1,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "支援寄りの武器。体力底上げとの相性が良い。"
+    },
+    {
+      "id": "wp_staff_003",
+      "name": "聖導杖オリジン",
+      "rarity": 3,
+      "weaponType": "staff",
+      "weaponTypeDisplay": "杖",
+      "role": "支援・回復向け",
+      "baseStats": {
+        "hp": 55,
+        "atk": 95
+      },
+      "plusRule": {
+        "maxPlus": 5,
+        "multiplier": 1.2,
+        "formula": "floor(baseStat * (1.2 ^ plus))"
+      },
+      "attackProfile": {
+        "hitCount": 1,
+        "ratePerHit": 1.0,
+        "totalRate": 1.0
+      },
+      "skillCount": 2,
+      "partySkills": [
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        },
+        {
+          "type": "hpUp",
+          "displayName": "体力アップ",
+          "tier": "small",
+          "tierLabel": "小",
+          "value": 0.05,
+          "target": "party"
+        }
+      ],
+      "flavorText": "支援寄りの武器。体力底上げとの相性が良い。"
+    }
+  ]
+}
