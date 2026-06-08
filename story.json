@@ -1,0 +1,535 @@
+{
+  "meta": {
+    "gameTitle": "ナイト・オール・スクール",
+    "chapterTitle": "第1章　光に選ばれた夜",
+    "schoolName": "星導防衛学園",
+    "enemyName": "REAVER",
+    "goddessName": "始原の女神ルクシア",
+    "protagonistDisplayName": "主人公",
+    "protagonistFirstPerson": "俺",
+    "version": "mvp-v1.2"
+  },
+  "stories": [
+    {
+      "id": "story_1_1",
+      "chapter": 1,
+      "title": "光に選ばれた夜",
+      "type": "story",
+      "unlockCondition": {
+        "type": "initial"
+      },
+      "nextNodeId": "story_1_2",
+      "unlockCharacters": [],
+      "scenes": [
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "bg": "bg_city_evening",
+          "bgm": "bgm_chapter1_intro",
+          "text": "数年前から、この国は少しずつ壊れていた。"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "text": "初めは通信障害。次に交通網の不具合。そして今では、誰も“ただの事故”だとは思っていない。"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "text": "突如現れた自立型AI群、REAVER。人間を襲い、その活動エネルギーを補うために、人そのものを利用しようとする存在。"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "text": "町から、人が消えていった。夜道を一人で歩くことすら、もう日常ではなかった。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "bg": "bg_street_twilight",
+          "text": "……今日は、やけに静かだ。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "静かすぎる。こんな日は、ろくなことが起きない。"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "sfx": "sfx_noise_alarm",
+          "text": "街灯が点滅し、空気を裂くようなノイズが走る。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "また通信障害か……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "いや……違う。これは……"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "bg": "bg_street_alert",
+          "text": "路地の影から、赤い光を灯した機械群が現れる。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "人ではない。けれど、ただの機械とも違う。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "“獲物”を見つけた生き物みたいに、そいつらは迷いなくこっちを見た。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "……っ、来る！"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "sfx": "sfx_enemy_attack",
+          "text": "主人公は逃げるが、すぐに路地へ追い込まれる。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "終わった。そう思った。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "走っても逃げ切れない。叫んでも、誰も間に合わない。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "ここで、俺は――"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "bg": "bg_white_space",
+          "bgm": "bgm_goddess_theme",
+          "sfx": "sfx_light_appear",
+          "text": "その瞬間、世界の音が消えた。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "ルクシア",
+          "text": "汝、見過ごせぬ者。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "ルクシア",
+          "text": "滅びに抗う意志を持つ者。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "ルクシア",
+          "text": "ならば、受け取りなさい。抗うための光を。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "……誰だ……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "何が……起きてる……！"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "text": "主人公の前に光の障壁が展開され、敵の攻撃を弾く。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "見えた。敵の軌道。危険の位置。どう動けば、生き残れるか。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "まるで、頭の中に“戦い方”を直接流し込まれたみたいに。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "これが……力……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "俺が……戦えるっていうのか……！"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "bg": "bg_street_night",
+          "bgm": "bgm_tension",
+          "text": "主人公は震える手を握りしめ、初めて敵へと踏み出す。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "その夜、俺の日常は終わった。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "そして同時に、“戦う側”としての人生が始まった。"
+        }
+      ]
+    },
+    {
+      "id": "story_1_2",
+      "chapter": 1,
+      "title": "選ばれた者たち",
+      "type": "story",
+      "unlockCondition": {
+        "type": "storyClear",
+        "targetId": "story_1_1"
+      },
+      "nextNodeId": "battle_1_1",
+      "unlockCharacters": [
+        "char_towa",
+        "char_hinano",
+        "char_suzu"
+      ],
+      "scenes": [
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "bg": "bg_station_ruins",
+          "bgm": "bgm_encounter",
+          "text": "敵に囲まれかけたその時、爆発音とともに一体の機械が吹き飛んだ。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "emotion": "angry",
+          "text": "ぼーっとしないで！ まだ囲まれてる！"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "……え？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "説明は後！ 生きて帰りたいなら立って！"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "text": "影のように一人の少年が敵の横を抜け、機械の動きを止める。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "emotion": "normal",
+          "text": "右から二体。遅い。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "お前たち……何者だ……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "emotion": "gentle",
+          "text": "大丈夫……少し光が安定してる。あなたも……やっぱり、見えてるんですね。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "見えてる……？"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "何を言っているのか、すぐには分からなかった。けれど、三人とも普通じゃなかった。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "俺と同じだ。いや、俺よりもずっと戦い慣れている。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "あなた、さっき光を受けたでしょ。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "光……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "私たちも同じです。あの時から、“見えるもの”が変わった。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "敵の動き。危険。……たぶん、こいつも同じ。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "じゃあ、お前たちも……"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "“選ばれた側”ってこと。言い方は好きじゃないけどね。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "私は火ノ宮ヒナノ。放っておけないから助ける。……それだけ。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "朝霧トワ。長話は嫌い。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "風早スズです。無事でよかった……本当に。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "俺は……"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "どうして、そんなふうに戦えるんだ……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "最初は私たちだって無茶苦茶だった。怖かったし、意味も分からなかった。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "でも、逃げているだけじゃ誰も守れないって、思ったんです。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "力があるなら使う。使わない理由の方が、もうない。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "私たちは“選ばれた”んじゃない。たまたま、生き残るための手段を持っただけ。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "……でも、その力で誰かを守れるなら、それはきっと意味のあることだと思います。"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "sfx": "sfx_enemy_approach",
+          "text": "その時、奥の通路から新たな駆動音が響く。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "来る。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "ちょうどいい。あんたが本当に立てるか、ここで見せて。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "大丈夫です。私たちも一緒に戦います。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "……分かった。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "逃げるだけじゃ終われない。なら、俺も戦う！"
+        }
+      ]
+    },
+    {
+      "id": "story_1_3",
+      "chapter": 1,
+      "title": "進むしかない",
+      "type": "story",
+      "unlockCondition": {
+        "type": "battleClear",
+        "targetId": "battle_1_1"
+      },
+      "nextNodeId": "battle_1_2",
+      "unlockCharacters": [],
+      "scenes": [
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "bg": "bg_after_battle",
+          "bgm": "bgm_after_battle",
+          "text": "戦闘が終わり、静寂の中に機械の残骸だけが残った。"
+        },
+        {
+          "speakerType": "monologue",
+          "speaker": "主人公",
+          "text": "勝った。いや、正確には“生き残った”が近い。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "……本当に、戦えた……"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "俺が……倒したのか……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "上出来。初戦で腰抜かさなかっただけでも十分。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "でも、無理はしないでください。力を得たばかりの人は、感覚が追いつかなくなることがあるので……"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "慣れない。ただ、止まれなくなるだけ。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "お前たちは、ずっとこんな戦いを……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "ずっとってほどじゃない。でも、最初の一回で終わらないことは、すぐ分かった。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "力を得た人たちは、少しずつ集められてるんです。誰かに命令されたわけじゃない。……でも、必要だから。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "敵は増えてる。一体ずつ倒して終わる相手じゃない。"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "sfx": "sfx_heavy_vibration",
+          "bgm": "bgm_danger",
+          "text": "その瞬間、地面が微かに揺れ、遠くから多数の駆動音が重なって響く。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "……まずい。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "群れてる。しかも、中心に一体……大きいのがいる。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "この反応……今までの個体とは違う……！"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "チッ……ただの雑魚の群れじゃない。中枢個体が混じってる。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "勝てるのか……？"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "勝つしかないでしょ。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "ここで止めないと、近くの避難区域まで危険が広がります。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "逃がしたら増える。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "……分かった。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "怖くないわけじゃない。でも、もう見てるだけではいられない。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "火ノ宮ヒナノ",
+          "text": "じゃあ、行くよ。ここからが本当の始まり。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "風早スズ",
+          "text": "今度は、さっきよりもっと合わせて動きましょう。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "朝霧トワ",
+          "text": "指示、遅れないで。"
+        },
+        {
+          "speakerType": "dialogue",
+          "speaker": "主人公",
+          "text": "……ああ。みんなで、生きて帰る。"
+        },
+        {
+          "speakerType": "narration",
+          "speaker": "ナレーション",
+          "text": "その先にいたのは、小型AIの群れ、そしてその中心で脈動する中枢個体だった。"
+        }
+      ]
+    }
+  ]
+}
