@@ -1,493 +1,103 @@
 {
   "meta": {
-    "gameTitle": "ナイト・オール・スクール",
-    "version": "mvp-v1.2",
-    "displayStats": [
-      "hp",
-      "atk"
-    ],
-    "internalBattleStats": [
-      "guard"
-    ],
-    "maxLevel": 99,
-    "skillUnlockRules": [
-      {
-        "slot": 1,
-        "unlockLevel": 1
-      },
-      {
-        "slot": 2,
-        "unlockLevel": 30
-      },
-      {
-        "slot": 3,
-        "unlockLevel": 50
-      },
-      {
-        "slot": 4,
-        "unlockLevel": 75
-      }
-    ],
-    "burstUnlockedFromStart": true,
-    "bondBonusRules": [
-      {
-        "rank": "知り合い",
-        "min": 1,
-        "max": 10,
-        "bonusRate": 0.03
-      },
-      {
-        "rank": "友人",
-        "min": 11,
-        "max": 30,
-        "bonusRate": 0.05
-      },
-      {
-        "rank": "仲良し",
-        "min": 31,
-        "max": 50,
-        "bonusRate": 0.07
-      },
-      {
-        "rank": "親友",
-        "min": 51,
-        "max": 70,
-        "bonusRate": 0.1
-      },
-      {
-        "rank": "大親友/恋人",
-        "min": 71,
-        "max": 90,
-        "bonusRate": 0.15
-      },
-      {
-        "rank": "神格化",
-        "min": 91,
-        "max": 100,
-        "bonusRate": 0.15
-      }
+    "version": "battle-v1.1",
+    "notes": [
+      "ターゲット選択 + スキル差別化版",
+      "主人公は app.js 側の司令ユニットとして扱う"
     ]
   },
   "characters": [
     {
       "id": "char_towa",
-      "name": "朝霧トワ",
-      "grade": 1,
-      "gender": "male",
-      "element": "blue",
-      "role": "高速・多段・ゲージ回収",
-      "school": "星導防衛学園",
-      "initialUnlocked": false,
-      "unlockStoryId": "story_1_2",
+      "name": "トワ",
       "weaponAffinity": [
-        "dagger",
-        "katana",
-        "gun"
+        "sword",
+        "katana"
       ],
-      "sacredBeastId": "beast_sail",
-      "baseLevel": 1,
-      "maxLevel": 99,
-      "expCurveType": "standard",
       "displayStats": {
-        "baseHp": 120,
-        "baseAtk": 18,
-        "growthHp": 7,
-        "growthAtk": 2
+        "baseHp": 128,
+        "baseAtk": 44
       },
-      "internalStats": {
-        "baseGuard": 10,
-        "growthGuard": 1,
-        "guardType": "low"
-      },
-      "battleTraits": {
-        "normalHitPattern": {
-          "hitCount": 2,
-          "ratePerHit": 0.6,
-          "totalRate": 1.2
+      "combat": {
+        "role": "single_attacker",
+        "normalAttackName": "双刃斬り",
+        "skill": {
+          "name": "蒼刃連殺",
+          "type": "single",
+          "multiplier": 1.65,
+          "gaugeGain": 5,
+          "description": "単体高火力スキル"
         },
-        "gaugeGainOnNormalHit": 10,
-        "gaugeGainOnHitTaken": 5
-      },
-      "skills": {
-        "slot1": {
-          "id": "skill_towa_1",
-          "name": "ミラージュステップ",
-          "unlockLevel": 1,
-          "ct": 2,
-          "kind": "attack_buff",
-          "hitCount": 2,
-          "ratePerHit": 0.75,
-          "totalRate": 1.5,
-          "effects": [
-            {
-              "type": "evadeUp",
-              "value": 0.15,
-              "duration": 1,
-              "target": "self"
-            }
-          ]
-        },
-        "slot2": {
-          "id": "skill_towa_2",
-          "name": "アクアブレイク",
-          "unlockLevel": 30,
-          "ct": 3,
-          "kind": "attack_status",
-          "hitCount": 2,
-          "ratePerHit": 0.9,
-          "totalRate": 1.8,
-          "effects": [
-            {
-              "type": "bleed",
-              "chance": 0.4,
-              "duration": 2,
-              "target": "enemy"
-            }
-          ]
-        },
-        "slot3": {
-          "id": "skill_towa_3",
-          "name": "フェイドラッシュ",
-          "unlockLevel": 50,
-          "ct": 4,
-          "kind": "attack_buff",
-          "hitCount": 3,
-          "ratePerHit": 0.7,
-          "totalRate": 2.1,
-          "effects": [
-            {
-              "type": "critUp",
-              "value": 10,
-              "duration": 1,
-              "target": "self"
-            }
-          ]
-        },
-        "slot4": {
-          "id": "skill_towa_4",
-          "name": "ブルーファントム",
-          "unlockLevel": 75,
-          "ct": 5,
-          "kind": "attack_debuff",
-          "hitCount": 2,
-          "ratePerHit": 1.2,
-          "totalRate": 2.4,
-          "effects": [
-            {
-              "type": "extraIfBleed",
-              "applyDebuff": "damageTakenUp",
-              "value": 0.15,
-              "duration": 2,
-              "target": "enemy"
-            }
-          ]
+        "burst": {
+          "name": "蒼天断罪",
+          "type": "single",
+          "multiplier": 2.4,
+          "gaugeCost": 100,
+          "description": "単体超火力必殺技"
         }
-      },
-      "burst": {
-        "id": "burst_towa",
-        "name": "ブルーファング",
-        "unlockLevel": 1,
-        "gaugeCost": 100,
-        "hitCount": 4,
-        "ratePerHit": 0.75,
-        "totalRate": 3.0,
-        "effects": [
-          {
-            "type": "extraFinalHitIfBleed",
-            "multiplier": 1.2,
-            "target": "enemy"
-          }
-        ]
-      },
-      "bond": {
-        "initialPoints": 0,
-        "talkGroupId": "talk_towa"
-      },
-      "profiles": {
-        "personality": "無口で鋭い観察眼を持つ。必要最低限しか話さないが、仲間は見捨てない。",
-        "firstPerson": "俺"
       }
     },
     {
       "id": "char_hinano",
-      "name": "火ノ宮ヒナノ",
-      "grade": 1,
-      "gender": "female",
-      "element": "red",
-      "role": "前衛火力アタッカー",
-      "school": "星導防衛学園",
-      "initialUnlocked": false,
-      "unlockStoryId": "story_1_2",
+      "name": "ヒナノ",
       "weaponAffinity": [
-        "sword",
-        "katana",
-        "axe",
-        "spear"
+        "staff",
+        "book"
       ],
-      "sacredBeastId": "beast_leone",
-      "baseLevel": 1,
-      "maxLevel": 99,
-      "expCurveType": "power",
       "displayStats": {
-        "baseHp": 140,
-        "baseAtk": 22,
-        "growthHp": 9,
-        "growthAtk": 3
+        "baseHp": 116,
+        "baseAtk": 38
       },
-      "internalStats": {
-        "baseGuard": 12,
-        "growthGuard": 1,
-        "guardType": "mid"
-      },
-      "battleTraits": {
-        "normalHitPattern": {
-          "hitCount": 1,
-          "ratePerHit": 1.0,
-          "totalRate": 1.0
+      "combat": {
+        "role": "aoe_support",
+        "normalAttackName": "ルーンショット",
+        "skill": {
+          "name": "ルーンレイン",
+          "type": "aoe",
+          "multiplier": 1.05,
+          "gaugeGain": 5,
+          "description": "敵全体を攻撃する範囲スキル"
         },
-        "gaugeGainOnNormalHit": 10,
-        "gaugeGainOnHitTaken": 5
-      },
-      "skills": {
-        "slot1": {
-          "id": "skill_hinano_1",
-          "name": "ブレイズライズ",
-          "unlockLevel": 1,
-          "ct": 2,
-          "kind": "attack_buff",
-          "hitCount": 1,
-          "ratePerHit": 0.9,
-          "totalRate": 0.9,
-          "effects": [
-            {
-              "type": "atkUp",
-              "value": 0.2,
-              "duration": 2,
-              "target": "self"
-            }
-          ]
-        },
-        "slot2": {
-          "id": "skill_hinano_2",
-          "name": "バーニングチャージ",
-          "unlockLevel": 30,
-          "ct": 3,
-          "kind": "attack_status",
-          "hitCount": 1,
-          "ratePerHit": 1.8,
-          "totalRate": 1.8,
-          "effects": [
-            {
-              "type": "burn",
-              "chance": 0.4,
-              "duration": 2,
-              "target": "enemy"
-            }
-          ]
-        },
-        "slot3": {
-          "id": "skill_hinano_3",
-          "name": "フレアインパクト",
-          "unlockLevel": 50,
-          "ct": 4,
-          "kind": "attack_buff",
-          "hitCount": 1,
-          "ratePerHit": 2.0,
-          "totalRate": 2.0,
-          "effects": [
-            {
-              "type": "critUp",
-              "value": 10,
-              "duration": 1,
-              "target": "self"
-            }
-          ]
-        },
-        "slot4": {
-          "id": "skill_hinano_4",
-          "name": "クリムゾンバスター",
-          "unlockLevel": 75,
-          "ct": 5,
-          "kind": "attack_finisher",
-          "hitCount": 1,
-          "ratePerHit": 2.3,
-          "totalRate": 2.3,
-          "effects": [
-            {
-              "type": "bonusIfBurn",
-              "multiplier": 1.2,
-              "target": "enemy"
-            }
-          ]
+        "burst": {
+          "name": "アストラルノヴァ",
+          "type": "aoe",
+          "multiplier": 1.75,
+          "gaugeCost": 100,
+          "description": "敵全体を攻撃する必殺技"
         }
-      },
-      "burst": {
-        "id": "burst_hinano",
-        "name": "紅蓮一閃",
-        "unlockLevel": 1,
-        "gaugeCost": 100,
-        "hitCount": 1,
-        "ratePerHit": 3.2,
-        "totalRate": 3.2,
-        "effects": [
-          {
-            "type": "bonusIfBurn",
-            "multiplier": 1.2,
-            "target": "enemy"
-          }
-        ]
-      },
-      "bond": {
-        "initialPoints": 0,
-        "talkGroupId": "talk_hinano"
-      },
-      "profiles": {
-        "personality": "明るく勝ち気で、真っ先に前へ出るタイプ。怖さを押し込めてでも仲間を守ろうとする。",
-        "firstPerson": "私"
       }
     },
     {
       "id": "char_suzu",
-      "name": "風早スズ",
-      "grade": 1,
-      "gender": "female",
-      "element": "green",
-      "role": "回復・補助・安定化",
-      "school": "星導防衛学園",
-      "initialUnlocked": false,
-      "unlockStoryId": "story_1_2",
+      "name": "スズ",
       "weaponAffinity": [
-        "bow",
-        "staff"
+        "lance",
+        "shield",
+        "hammer"
       ],
-      "sacredBeastId": "beast_sylpha",
-      "baseLevel": 1,
-      "maxLevel": 99,
-      "expCurveType": "support",
       "displayStats": {
-        "baseHp": 130,
-        "baseAtk": 14,
-        "growthHp": 8,
-        "growthAtk": 1
+        "baseHp": 142,
+        "baseAtk": 32
       },
-      "internalStats": {
-        "baseGuard": 13,
-        "growthGuard": 1,
-        "guardType": "mid_high"
-      },
-      "battleTraits": {
-        "normalHitPattern": {
-          "hitCount": 1,
-          "ratePerHit": 1.0,
-          "totalRate": 1.0
+      "combat": {
+        "role": "tank_taunt",
+        "normalAttackName": "シールドバッシュ",
+        "skill": {
+          "name": "ガーディアンコール",
+          "type": "taunt",
+          "multiplier": 1.1,
+          "gaugeGain": 5,
+          "tauntTurns": 2,
+          "description": "敵の攻撃を引きつける挑発スキル"
         },
-        "gaugeGainOnNormalHit": 10,
-        "gaugeGainOnHitTaken": 5
-      },
-      "skills": {
-        "slot1": {
-          "id": "skill_suzu_1",
-          "name": "ブリーズヒール",
-          "unlockLevel": 1,
-          "ct": 2,
-          "kind": "heal",
-          "healRate": 2.0,
-          "effects": [
-            {
-              "type": "singleHeal",
-              "target": "ally"
-            }
-          ]
-        },
-        "slot2": {
-          "id": "skill_suzu_2",
-          "name": "エアリアサポート",
-          "unlockLevel": 30,
-          "ct": 3,
-          "kind": "support",
-          "effects": [
-            {
-              "type": "regen",
-              "value": 0.05,
-              "duration": 2,
-              "target": "party"
-            },
-            {
-              "type": "evadeUp",
-              "value": 0.15,
-              "duration": 1,
-              "target": "party"
-            }
-          ]
-        },
-        "slot3": {
-          "id": "skill_suzu_3",
-          "name": "フェアリーウィンド",
-          "unlockLevel": 50,
-          "ct": 4,
-          "kind": "heal_support",
-          "healRate": 2.6,
-          "effects": [
-            {
-              "type": "singleHeal",
-              "target": "ally"
-            },
-            {
-              "type": "damageCut",
-              "value": 0.15,
-              "duration": 1,
-              "target": "ally"
-            }
-          ]
-        },
-        "slot4": {
-          "id": "skill_suzu_4",
-          "name": "シルフィードヴェール",
-          "unlockLevel": 75,
-          "ct": 5,
-          "kind": "support_barrier",
-          "effects": [
-            {
-              "type": "damageCut",
-              "value": 0.15,
-              "duration": 1,
-              "target": "party"
-            },
-            {
-              "type": "barrier",
-              "value": 0.1,
-              "duration": 1,
-              "target": "party"
-            }
-          ]
+        "burst": {
+          "name": "アイアンフォートレス",
+          "type": "taunt_burst",
+          "multiplier": 1.95,
+          "gaugeCost": 100,
+          "tauntTurns": 2,
+          "description": "重撃しつつ挑発する必殺技"
         }
-      },
-      "burst": {
-        "id": "burst_suzu",
-        "name": "シルフィードガーデン",
-        "unlockLevel": 1,
-        "gaugeCost": 100,
-        "kind": "party_heal_cleanse",
-        "healRate": 1.6,
-        "effects": [
-          {
-            "type": "partyHeal",
-            "target": "party"
-          },
-          {
-            "type": "clearStatus",
-            "count": 1,
-            "target": "party"
-          }
-        ]
-      },
-      "bond": {
-        "initialPoints": 0,
-        "talkGroupId": "talk_suzu"
-      },
-      "profiles": {
-        "personality": "穏やかで気配り上手。仲間の変化にすぐ気づき、静かに支えるタイプ。",
-        "firstPerson": "私"
       }
     }
   ]
