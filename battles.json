@@ -1,295 +1,163 @@
 {
   "meta": {
-    "gameTitle": "ナイト・オール・スクール",
-    "version": "mvp-v1.2",
-    "battleFlow": [
-      "protagonist",
-      "partyMembersInFormationOrder",
-      "enemies"
-    ],
-    "protagonistActions": [
-      "skill",
-      "wait"
-    ],
-    "memberActions": [
-      "useSkillOrNot",
-      "useBurstOrNot",
-      "attackOrGuard"
-    ],
-    "guardActionRule": {
-      "description": "防御を選択したキャラは次の自分のターンまで内部防御値を10倍として扱う",
-      "guardMultiplier": 10
-    },
+    "version": "battle-v1.1",
     "gaugeRules": {
-      "normalHitGain": 10,
-      "damageTakenGain": 5,
-      "burstCost": 100
+      "normalAttack": 20,
+      "skillUse": 5,
+      "damageTaken": 10,
+      "guard": 10,
+      "burstReady": 100
     },
-    "rewards": {
-      "firstClearMaterialCore": 5,
-      "chapterClearMaterialCore": 50,
-      "repeatRewardType": "expOnly"
+    "protagonistCommands": {
+      "attackBoost": 0.05,
+      "defenseReduce": 0.1,
+      "focusGauge": 5,
+      "guardReduction": 0.8
     }
   },
   "enemyTemplates": [
     {
-      "id": "enemy_scavenger",
-      "name": "スカベンジャー",
-      "role": "基本雑魚",
+      "id": "enemy_reaver_scout",
+      "name": "レイヴァー・スカウト",
       "displayStats": {
-        "hp": 90,
+        "hp": 95,
         "atk": 22
       },
-      "internalStats": {
-        "baseGuard": 8,
-        "guardType": "low"
-      },
-      "aiType": "simpleNormal",
-      "normalAttack": {
-        "name": "エネルギークロー",
-        "hitCount": 1,
-        "ratePerHit": 1.0,
-        "totalRate": 1.0
-      },
-      "skills": [
-        {
-          "id": "enemy_scavenger_skill_1",
-          "name": "スクラップバイト",
-          "ct": 2,
-          "hitCount": 1,
-          "ratePerHit": 1.2,
-          "totalRate": 1.2,
-          "effects": []
-        }
-      ]
-    },
-    {
-      "id": "enemy_raider_bite",
-      "name": "レイダーバイト",
-      "role": "突進型雑魚",
-      "displayStats": {
-        "hp": 110,
-        "atk": 28
-      },
-      "internalStats": {
-        "baseGuard": 10,
-        "guardType": "mid"
-      },
-      "aiType": "simpleAggressive",
-      "normalAttack": {
-        "name": "ファングアタック",
-        "hitCount": 1,
-        "ratePerHit": 1.0,
-        "totalRate": 1.0
-      },
-      "skills": [
-        {
-          "id": "enemy_raider_bite_skill_1",
-          "name": "ラッシュファング",
-          "ct": 2,
-          "hitCount": 2,
-          "ratePerHit": 0.7,
-          "totalRate": 1.4,
-          "effects": []
+      "combat": {
+        "normalAttackName": "切り裂き",
+        "skill": {
+          "name": "グリッチスラッシュ",
+          "multiplier": 1.18,
+          "cooldown": 2
         },
-        {
-          "id": "enemy_raider_bite_skill_2",
-          "name": "ハンティングチャージ",
-          "ct": 3,
-          "hitCount": 1,
-          "ratePerHit": 1.4,
-          "totalRate": 1.4,
-          "effects": []
-        }
-      ]
-    },
-    {
-      "id": "enemy_scan_shooter",
-      "name": "スキャンシューター",
-      "role": "後衛妨害雑魚",
-      "displayStats": {
-        "hp": 100,
-        "atk": 24
-      },
-      "internalStats": {
-        "baseGuard": 9,
-        "guardType": "low_mid"
-      },
-      "aiType": "simpleDebuff",
-      "normalAttack": {
-        "name": "ロックショット",
-        "hitCount": 1,
-        "ratePerHit": 1.0,
-        "totalRate": 1.0
-      },
-      "skills": [
-        {
-          "id": "enemy_scan_shooter_skill_1",
-          "name": "ジャミングショット",
-          "ct": 3,
-          "hitCount": 1,
-          "ratePerHit": 1.1,
-          "totalRate": 1.1,
-          "effects": [
-            {
-              "type": "accuracyDown",
-              "chance": 0.25,
-              "duration": 1,
-              "target": "enemy"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "enemy_cluster_nest",
-      "name": "クラスターネスト",
-      "role": "中ボス",
-      "displayStats": {
-        "hp": 320,
-        "atk": 34
-      },
-      "internalStats": {
-        "baseGuard": 16,
-        "guardType": "mid_high"
-      },
-      "aiType": "simpleMidBoss",
-      "normalAttack": {
-        "name": "コアブレイク",
-        "hitCount": 1,
-        "ratePerHit": 1.1,
-        "totalRate": 1.1
-      },
-      "skills": [
-        {
-          "id": "enemy_cluster_nest_skill_1",
-          "name": "ディスチャージバースト",
-          "ct": 2,
-          "hitCount": 1,
-          "ratePerHit": 1.4,
-          "totalRate": 1.4,
-          "effects": []
+        "burst": {
+          "name": "ノイズバースト",
+          "multiplier": 1.85,
+          "gaugeCost": 100
         },
-        {
-          "id": "enemy_cluster_nest_skill_2",
-          "name": "エネルギー収束",
-          "ct": 4,
-          "hitCount": 1,
-          "ratePerHit": 1.9,
-          "totalRate": 1.9,
-          "effects": [
-            {
-              "type": "guardDown",
-              "chance": 0.2,
-              "duration": 1,
-              "target": "enemy"
-            }
-          ]
+        "ai": {
+          "skillChance": 0.3,
+          "targeting": "lowest_hp"
         }
-      ]
+      }
+    },
+    {
+      "id": "enemy_reaver_guard",
+      "name": "レイヴァー・ガード",
+      "displayStats": {
+        "hp": 130,
+        "atk": 18
+      },
+      "combat": {
+        "normalAttackName": "ヘヴィブロウ",
+        "skill": {
+          "name": "クラッシュダウン",
+          "multiplier": 1.25,
+          "cooldown": 2
+        },
+        "burst": {
+          "name": "オーバーランページ",
+          "multiplier": 1.95,
+          "gaugeCost": 100
+        },
+        "ai": {
+          "skillChance": 0.35,
+          "targeting": "front"
+        }
+      }
+    },
+    {
+      "id": "enemy_reaver_alpha",
+      "name": "レイヴァー・アルファ",
+      "displayStats": {
+        "hp": 260,
+        "atk": 30
+      },
+      "combat": {
+        "normalAttackName": "アルファクロウ",
+        "skill": {
+          "name": "コアブレイク",
+          "multiplier": 1.34,
+          "cooldown": 1
+        },
+        "burst": {
+          "name": "アルファカタストロフ",
+          "multiplier": 2.2,
+          "gaugeCost": 100
+        },
+        "ai": {
+          "skillChance": 0.45,
+          "targeting": "lowest_hp"
+        }
+      }
     }
   ],
   "battles": [
     {
       "id": "battle_1_1",
-      "chapter": 1,
-      "title": "最初の戦い",
+      "title": "校門前の異変",
       "battleType": "normal",
-      "unlockCondition": {
-        "type": "storyClear",
-        "targetId": "story_1_2"
-      },
       "enemyGroup": [
         {
-          "enemyId": "enemy_scavenger",
-          "instanceId": "enemy_scavenger_a"
+          "instanceId": "enemy_1",
+          "enemyId": "enemy_reaver_scout"
         },
         {
-          "enemyId": "enemy_scavenger",
-          "instanceId": "enemy_scavenger_b"
+          "instanceId": "enemy_2",
+          "enemyId": "enemy_reaver_scout"
         }
       ],
       "firstClearReward": {
-        "materialCore": 5,
-        "exp": 30
+        "materialCore": 35,
+        "exp": 25
       },
       "repeatReward": {
-        "exp": 20
-      },
-      "nextNodeId": "story_1_3",
-      "recommendedLevel": 1,
-      "difficulty": "easy"
+        "exp": 10
+      }
     },
     {
       "id": "battle_1_2",
-      "chapter": 1,
-      "title": "迫る群れ",
+      "title": "講堂の防衛線",
       "battleType": "normal",
-      "unlockCondition": {
-        "type": "storyClear",
-        "targetId": "story_1_3"
-      },
       "enemyGroup": [
         {
-          "enemyId": "enemy_raider_bite",
-          "instanceId": "enemy_raider_bite_a"
+          "instanceId": "enemy_1",
+          "enemyId": "enemy_reaver_guard"
         },
         {
-          "enemyId": "enemy_raider_bite",
-          "instanceId": "enemy_raider_bite_b"
-        },
-        {
-          "enemyId": "enemy_scan_shooter",
-          "instanceId": "enemy_scan_shooter_a"
+          "instanceId": "enemy_2",
+          "enemyId": "enemy_reaver_scout"
         }
       ],
       "firstClearReward": {
-        "materialCore": 5,
-        "exp": 45
+        "materialCore": 50,
+        "exp": 35
       },
       "repeatReward": {
-        "exp": 30
-      },
-      "nextNodeId": "battle_1_3",
-      "recommendedLevel": 2,
-      "difficulty": "normal"
+        "exp": 14
+      }
     },
     {
       "id": "battle_1_3",
-      "chapter": 1,
-      "title": "群体中枢との遭遇",
-      "battleType": "midboss",
-      "unlockCondition": {
-        "type": "battleClear",
-        "targetId": "battle_1_2"
-      },
+      "title": "中庭のアルファ個体",
+      "battleType": "boss",
       "enemyGroup": [
         {
-          "enemyId": "enemy_cluster_nest",
-          "instanceId": "enemy_cluster_nest_a"
+          "instanceId": "enemy_boss",
+          "enemyId": "enemy_reaver_alpha"
         },
         {
-          "enemyId": "enemy_scavenger",
-          "instanceId": "enemy_scavenger_c"
-        },
-        {
-          "enemyId": "enemy_scavenger",
-          "instanceId": "enemy_scavenger_d"
+          "instanceId": "enemy_sub",
+          "enemyId": "enemy_reaver_scout"
         }
       ],
       "firstClearReward": {
-        "materialCore": 5,
-        "exp": 80
-      },
-      "repeatReward": {
+        "materialCore": 80,
         "exp": 60
       },
-      "chapterClearReward": {
-        "materialCore": 50
-      },
-      "nextNodeId": null,
-      "recommendedLevel": 4,
-      "difficulty": "normal"
+      "repeatReward": {
+        "exp": 20
+      }
     }
   ]
 }
