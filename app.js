@@ -1,13 +1,21 @@
 // ナイト・オール・スクール
-// MVPプロトタイプ統合版
-// - 画面遷移
-// - story / characters / battles / weapons 読み込み
-// - 冒険画面：ストーリー本文 / バトル情報 / バトル最小UI
-// - 編成画面：装備UI / 最終HP・ATK / localStorage保存
-// - バトル最小UI：1ターン分の簡易実行（HP減少あり）
-// - 勝利 / 敗北判定と報酬表示
+// 統合版 MVP
+// - ストーリー / バトル / 編成 / ガチャ / 武器強化 / 売却
+// - ガチャ結果カード：NEW / 重複 判定、キャラ別「装備する」、強化する、売却する、お気に入り
+// - 追加機能:
+//   1) 装備後の最終HP / 最終ATK をリアルタイム比較表示
+//   2) 一括操作（全部売却 / ★2以上だけロック / お気に入り登録）
+//   3) ガチャ演出強化（カードめくり / 順番公開 / ★3フラッシュ / NEW発光）
 
-const STORAGE_KEY = 'night-all-school-save-v3';
+const STORAGE_KEY = 'night-all-school-save-v14';
+const WEAPON_ENHANCE_MAX = 10;
+const WEAPON_ENHANCE_RATE = 0.10;
+const WEAPON_ENHANCE_BASE_COST = 10;
+const GACHA_SINGLE_COST = 50;
+const GACHA_TEN_COST = 500;
+const GACHA_RARITY_WEIGHTS = { 1: 70, 2: 25, 3: 5 };
+const GACHA_LOG_MAX = 30;
+const SELL_VALUES = { 1: 5, 2: 15, 3: 50 };
 
 const screens = {
   title: document.getElementById('screen-title'),
@@ -18,31 +26,25 @@ const screens = {
   gacha: document.getElementById('screen-gacha')
 };
 
-const gameData = {
-  story: null,
-  characters: null,
-  battles: null,
-  weapons: null
-};
-
-const storyReaderState = {
-  currentStoryId: null,
-  currentSceneIndex: 0
-};
-
+const gameData = { story: null, characters: null, battles: null, weapons: null };
+const storyReaderState = { currentStoryId: null, currentSceneIndex: 0 };
 const formationState = {
-  equippedWeapons: {
-    protagonist: '',
-    char_towa: '',
-    char_hinano: '',
-    char_suzu: ''
-  }
+  equippedWeapons: { protagonist: '', char_towa: '', char_hinano: '', char_suzu: '' }
 };
-
-const progressState = {
-  clearedBattles: []
+const progressState = { clearedBattles: [] };
+const resourceState = { materialCore: 0, exp: 0 };
+const weaponState = {
+  enhancements: {},
+  ownedWeapons: {},
+  lockedWeapons: {},
+  favoriteWeapons: {}
 };
-
+const gachaState = {
+  logs: [],
+  lastResults: [],
+  revealCount: 0,
+  revealTimer: null
+};
 const battleUiState = {
   currentBattleId: null,
   protagonistAction: 'wait',
@@ -58,11 +60,11 @@ const battleUiState = {
 };
 
 // -------------------------
-// 基本ユーティリティ
+// 共通ユーティリティ
 // -------------------------
 
 function escapeHtml(value) {
-  return String(value)
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -98,29 +100,150 @@ async function loadJson(path) {
   return response.json();
 }
 
+function renderResourceSummaryCard(title = '現在の所持数') {
+  return `
+    <h3>${escapeHtml(title)}</h3>
+    <div class="status-row"><span>マテリアルコア</span><strong>${escapeHtml(resourceState.materialCore)}</strong></div>
+    <div class="status-row"><span>EXP</span><strong>${escapeHtml(resourceState.exp)}</strong></div>
+    <p class="muted" style="margin-top: 12px;">勝利報酬・武器強化・ガチャ結果・売却結果は localStorage に保存されます。</p>
+  `;
+}
+
+function rerenderAllSections() {
+  renderAdventureSection();
+  renderFormationSection();
+  renderGachaSection();
+}
+
+function stopRevealTimer() {
+  if (gachaState.revealTimer) {
+    clearInterval(gachaState.revealTimer);
+    gachaState.revealTimer = null;
+  }
+}
+
+function ensureGachaFxStyles() {
+  if (document.getElementById('gacha-fx-style')) return;
+  const style = document.createElement('style');
+  style.id = 'gacha-fx-style';
+  style.textContent = `
+    @keyframes gachaFlipIn {
+      0% { transform: rotateY(90deg) scale(0.92); opacity: 0; }
+      100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+    }
+    @keyframes gachaFlash {
+      0% { opacity: 0; }
+      10% { opacity: 0.86; }
+      100% { opacity: 0; }
+    }
+    @keyframes gachaNewPulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(34,197,94,0.0), 0 8px 20px rgba(0,0,0,0.25); }
+      50% { box-shadow: 0 0 24px rgba(34,197,94,0.45), 0 8px 20px rgba(0,0,0,0.25); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function triggerRareFlash() {
+  ensureGachaFxStyles();
+  let overlay = document.getElementById('gacha-flash-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'gacha-flash-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '9999';
+    overlay.style.background = 'radial-gradient(circle, rgba(255,239,180,0.92) 0%, rgba(255,216,106,0.48) 38%, rgba(255,216,106,0.05) 78%, rgba(255,216,106,0) 100%)';
+    overlay.style.opacity = '0';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.animation = 'none';
+  void overlay.offsetWidth;
+  overlay.style.animation = 'gachaFlash 0.65s ease-out';
+}
+
+function getRarityColor(rarity) {
+  if (rarity === 3) return '#ffd86a';
+  if (rarity === 2) return '#8fd4ff';
+  return '#c7d2fe';
+}
+
+function getRarityBg(rarity) {
+  if (rarity === 3) return 'radial-gradient(circle at top, rgba(255,216,106,0.22), rgba(9,13,28,1) 72%)';
+  if (rarity === 2) return 'radial-gradient(circle at top, rgba(143,212,255,0.18), rgba(9,13,28,1) 72%)';
+  return 'linear-gradient(180deg, rgba(15,22,48,1) 0%, rgba(9,13,28,1) 100%)';
+}
+
+function getRarityLabel(rarity) {
+  return `★${rarity || 1}`;
+}
+
+function getCharactersList() {
+  return gameData.characters?.characters || [];
+}
+
+function getWeaponsList() {
+  return gameData.weapons?.weapons || [];
+}
+
+function getWeaponById(weaponId) {
+  return getWeaponsList().find((weapon) => weapon.id === weaponId) || null;
+}
+
+function getWeaponTypeMap() {
+  return new Map(Object.entries(gameData.weapons?.meta?.weaponTypeRules || {}));
+}
+
+function getWeaponTypeDisplay(weapon) {
+  if (!weapon) return '未設定';
+  const typeMap = getWeaponTypeMap();
+  return weapon.weaponTypeDisplay || typeMap.get(weapon.weaponType)?.displayName || weapon.weaponType;
+}
+
+function getCharacterById(charId) {
+  return getCharactersList().find((char) => char.id === charId) || null;
+}
+
+function getSlotDisplayName(slotId) {
+  if (slotId === 'protagonist') return '主人公';
+  return getCharacterById(slotId)?.name || slotId;
+}
+
 // -------------------------
 // セーブ / ロード
 // -------------------------
 
 function getDefaultSaveState() {
   return {
-    equippedWeapons: {
-      protagonist: '',
-      char_towa: '',
-      char_hinano: '',
-      char_suzu: ''
-    },
-    clearedBattles: []
+    equippedWeapons: { protagonist: '', char_towa: '', char_hinano: '', char_suzu: '' },
+    clearedBattles: [],
+    resources: { materialCore: 0, exp: 0 },
+    weaponEnhancements: {},
+    ownedWeapons: {},
+    lockedWeapons: {},
+    favoriteWeapons: {},
+    gachaLogs: [],
+    lastGachaResults: [],
+    gachaRevealCount: 0
   };
 }
 
 function saveGameState(showMessage = false) {
   try {
     const payload = {
-      version: 'mvp-v1.2',
+      version: 'mvp-v2.2',
       savedAt: new Date().toISOString(),
       equippedWeapons: formationState.equippedWeapons,
-      clearedBattles: progressState.clearedBattles
+      clearedBattles: progressState.clearedBattles,
+      resources: { materialCore: resourceState.materialCore, exp: resourceState.exp },
+      weaponEnhancements: weaponState.enhancements,
+      ownedWeapons: weaponState.ownedWeapons,
+      lockedWeapons: weaponState.lockedWeapons,
+      favoriteWeapons: weaponState.favoriteWeapons,
+      gachaLogs: gachaState.logs.slice(0, GACHA_LOG_MAX),
+      lastGachaResults: gachaState.lastResults.slice(0, 10),
+      gachaRevealCount: gachaState.revealCount
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     if (showMessage) alert('保存しました。');
@@ -138,14 +261,17 @@ function loadSaveData() {
     if (!raw) return false;
     const parsed = JSON.parse(raw);
     const defaults = getDefaultSaveState();
-
-    formationState.equippedWeapons = {
-      ...defaults.equippedWeapons,
-      ...(parsed?.equippedWeapons || {})
-    };
-    progressState.clearedBattles = Array.isArray(parsed?.clearedBattles)
-      ? [...parsed.clearedBattles]
-      : [];
+    formationState.equippedWeapons = { ...defaults.equippedWeapons, ...(parsed?.equippedWeapons || {}) };
+    progressState.clearedBattles = Array.isArray(parsed?.clearedBattles) ? [...parsed.clearedBattles] : [];
+    resourceState.materialCore = Number(parsed?.resources?.materialCore ?? defaults.resources.materialCore) || 0;
+    resourceState.exp = Number(parsed?.resources?.exp ?? defaults.resources.exp) || 0;
+    weaponState.enhancements = parsed?.weaponEnhancements && typeof parsed.weaponEnhancements === 'object' ? { ...parsed.weaponEnhancements } : {};
+    weaponState.ownedWeapons = parsed?.ownedWeapons && typeof parsed.ownedWeapons === 'object' ? { ...parsed.ownedWeapons } : {};
+    weaponState.lockedWeapons = parsed?.lockedWeapons && typeof parsed.lockedWeapons === 'object' ? { ...parsed.lockedWeapons } : {};
+    weaponState.favoriteWeapons = parsed?.favoriteWeapons && typeof parsed.favoriteWeapons === 'object' ? { ...parsed.favoriteWeapons } : {};
+    gachaState.logs = Array.isArray(parsed?.gachaLogs) ? parsed.gachaLogs.slice(0, GACHA_LOG_MAX) : [];
+    gachaState.lastResults = Array.isArray(parsed?.lastGachaResults) ? parsed.lastGachaResults.slice(0, 10) : [];
+    gachaState.revealCount = clamp(Number(parsed?.gachaRevealCount ?? defaults.gachaRevealCount) || 0, 0, 10);
     return true;
   } catch (error) {
     console.error('loadSaveData error:', error);
@@ -157,120 +283,833 @@ function resetFormationState() {
   formationState.equippedWeapons = { ...getDefaultSaveState().equippedWeapons };
 }
 
-function sanitizeEquippedWeapons() {
-  const weapons = gameData.weapons?.weapons || [];
-  const weaponSet = new Set(weapons.map((weapon) => weapon.id));
+function sanitizeWeaponEnhancements() {
+  const validSet = new Set(getWeaponsList().map((weapon) => weapon.id));
+  const nextState = {};
+  Object.entries(weaponState.enhancements).forEach(([weaponId, level]) => {
+    if (!validSet.has(weaponId)) return;
+    nextState[weaponId] = clamp(Number(level) || 0, 0, WEAPON_ENHANCE_MAX);
+  });
+  weaponState.enhancements = nextState;
+}
 
+function sanitizeOwnedWeapons() {
+  const validSet = new Set(getWeaponsList().map((weapon) => weapon.id));
+  const nextState = {};
+  Object.entries(weaponState.ownedWeapons).forEach(([weaponId, count]) => {
+    if (!validSet.has(weaponId)) return;
+    nextState[weaponId] = Math.max(0, Math.floor(Number(count) || 0));
+  });
+  weaponState.ownedWeapons = nextState;
+}
+
+function sanitizeProtectedWeapons() {
+  const validSet = new Set(getWeaponsList().map((weapon) => weapon.id));
+  const nextLocked = {};
+  const nextFav = {};
+  Object.entries(weaponState.lockedWeapons).forEach(([weaponId, locked]) => {
+    if (validSet.has(weaponId) && locked) nextLocked[weaponId] = true;
+  });
+  Object.entries(weaponState.favoriteWeapons).forEach(([weaponId, marked]) => {
+    if (validSet.has(weaponId) && marked) nextFav[weaponId] = true;
+  });
+  weaponState.lockedWeapons = nextLocked;
+  weaponState.favoriteWeapons = nextFav;
+}
+
+function initializeStarterWeaponsIfNeeded() {
+  const currentTotal = Object.values(weaponState.ownedWeapons).reduce((sum, count) => sum + (Number(count) || 0), 0);
+  if (currentTotal > 0) return;
+  const weapons = [...getWeaponsList()];
+  if (!weapons.length) return;
+  weapons.sort((a, b) => {
+    if ((a.rarity || 1) !== (b.rarity || 1)) return (a.rarity || 1) - (b.rarity || 1);
+    return String(a.id).localeCompare(String(b.id));
+  });
+  weapons.slice(0, Math.min(4, weapons.length)).forEach((weapon) => {
+    weaponState.ownedWeapons[weapon.id] = 1;
+  });
+}
+
+// -------------------------
+// 武器所持 / 強化 / 売却 / 保護
+// -------------------------
+
+function addRewards(materialCore = 0, exp = 0) {
+  resourceState.materialCore += Number(materialCore) || 0;
+  resourceState.exp += Number(exp) || 0;
+}
+
+function getOwnedWeaponCount(weaponId) {
+  return Math.max(0, Math.floor(Number(weaponState.ownedWeapons[weaponId] || 0)));
+}
+
+function addOwnedWeapon(weaponId, count = 1) {
+  weaponState.ownedWeapons[weaponId] = getOwnedWeaponCount(weaponId) + Math.max(1, Math.floor(Number(count) || 1));
+}
+
+function isWeaponLocked(weaponId) {
+  return !!weaponState.lockedWeapons[weaponId];
+}
+
+function isWeaponFavorite(weaponId) {
+  return !!weaponState.favoriteWeapons[weaponId];
+}
+
+function isWeaponProtected(weaponId) {
+  return isWeaponLocked(weaponId) || isWeaponFavorite(weaponId);
+}
+
+function setWeaponLocked(weaponId, value) {
+  if (value) weaponState.lockedWeapons[weaponId] = true;
+  else delete weaponState.lockedWeapons[weaponId];
+}
+
+function setWeaponFavorite(weaponId, value) {
+  if (value) weaponState.favoriteWeapons[weaponId] = true;
+  else delete weaponState.favoriteWeapons[weaponId];
+}
+
+function toggleFavoriteFromGachaResult(index) {
+  const result = gachaState.lastResults[index];
+  if (!result) return;
+  const weaponId = result.weaponId;
+  const next = !isWeaponFavorite(weaponId);
+  setWeaponFavorite(weaponId, next);
+  if (next) setWeaponLocked(weaponId, true);
+  saveGameState();
+  rerenderAllSections();
+  alert(next ? `${result.name} をお気に入り登録しました。売却保護も有効です。` : `${result.name} のお気に入りを解除しました。`);
+  showScreen('gacha');
+}
+
+function lockHighRarityWeapons() {
+  let count = 0;
+  getWeaponsList().forEach((weapon) => {
+    if ((weapon.rarity || 1) >= 2 && getOwnedWeaponCount(weapon.id) > 0 && !isWeaponLocked(weapon.id)) {
+      setWeaponLocked(weapon.id, true);
+      count += 1;
+    }
+  });
+  saveGameState();
+  rerenderAllSections();
+  alert(count > 0 ? `★2以上の武器を ${count} 件ロックしました。` : 'ロック対象の★2以上武器はありません。');
+  showScreen('gacha');
+}
+
+function getEquippedWeaponUsageMap() {
+  const map = new Map();
+  Object.values(formationState.equippedWeapons).forEach((weaponId) => {
+    if (!weaponId) return;
+    map.set(weaponId, (map.get(weaponId) || 0) + 1);
+  });
+  return map;
+}
+
+function canEquipWeaponToSlot(weapon, slotId) {
+  if (!weapon || !slotId) return false;
+  if (slotId === 'protagonist') return true;
+  const char = getCharacterById(slotId);
+  if (!char) return false;
+  const affinity = char.weaponAffinity || [];
+  return !affinity.length || affinity.includes(weapon.weaponType);
+}
+
+function sanitizeEquippedWeapons() {
+  const weapons = getWeaponsList();
+  const weaponSet = new Set(weapons.map((weapon) => weapon.id));
   Object.keys(formationState.equippedWeapons).forEach((slotId) => {
     const weaponId = formationState.equippedWeapons[slotId];
+    if (!weaponId || !weaponSet.has(weaponId)) {
+      formationState.equippedWeapons[slotId] = '';
+      return;
+    }
+    const weapon = getWeaponById(weaponId);
+    if (!canEquipWeaponToSlot(weapon, slotId)) {
+      formationState.equippedWeapons[slotId] = '';
+    }
+  });
+  const usageMap = getEquippedWeaponUsageMap();
+  Object.entries(formationState.equippedWeapons).forEach(([slotId, weaponId]) => {
     if (!weaponId) return;
-    if (!weaponSet.has(weaponId)) {
+    if ((usageMap.get(weaponId) || 0) > getOwnedWeaponCount(weaponId)) {
       formationState.equippedWeapons[slotId] = '';
-      return;
-    }
-
-    if (slotId === 'protagonist') return;
-
-    const character = (gameData.characters?.characters || []).find((char) => char.id === slotId);
-    const weapon = weapons.find((item) => item.id === weaponId);
-    if (!character || !weapon) {
-      formationState.equippedWeapons[slotId] = '';
-      return;
-    }
-
-    const affinity = character.weaponAffinity || [];
-    if (affinity.length && !affinity.includes(weapon.weaponType)) {
-      formationState.equippedWeapons[slotId] = '';
+      usageMap.set(weaponId, (usageMap.get(weaponId) || 1) - 1);
     }
   });
 }
 
-// -------------------------
-// ナビゲーション
-// -------------------------
-
-function setupNavigation() {
-  document.querySelector('[data-action="start"]')?.addEventListener('click', () => {
-    showScreen('menu');
-  });
-
-  document.querySelector('[data-action="load"]')?.addEventListener('click', () => {
-    const loaded = loadSaveData();
-    if (loaded) {
-      sanitizeEquippedWeapons();
-      renderFormationSection();
-      alert('保存済みデータを読み込みました。');
-      showScreen('menu');
-    } else {
-      alert('保存データがありません。');
-    }
-  });
-
-  document.querySelector('[data-action="settings"]')?.addEventListener('click', () => {
-    alert('設定画面 は後続実装予定です。');
-  });
-
-  document.querySelectorAll('[data-screen]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const target = button.getAttribute('data-screen');
-      showScreen(target);
-    });
-  });
-
-  document.querySelectorAll('[data-back]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const target = button.getAttribute('data-back');
-      showScreen(target);
-    });
-  });
+function getSellableWeaponCount(weaponId) {
+  if (isWeaponProtected(weaponId)) return 0;
+  const owned = getOwnedWeaponCount(weaponId);
+  const equippedCount = getEquippedWeaponUsageMap().get(weaponId) || 0;
+  const keepMinimum = Math.max(1, equippedCount);
+  return Math.max(0, owned - keepMinimum);
 }
 
-// -------------------------
-// データ読み込み
-// -------------------------
+function getWeaponSellValue(weapon) {
+  if (!weapon) return 0;
+  return SELL_VALUES[weapon.rarity || 1] || 0;
+}
 
-async function bootstrapGameData() {
-  try {
-    const [story, characters, battles, weapons] = await Promise.all([
-      loadJson('story.json'),
-      loadJson('characters.json'),
-      loadJson('battles.json'),
-      loadJson('weapons.json')
-    ]);
+function getBulkSellTargets(options = {}) {
+  const { rarity = null } = options;
+  const targets = [];
+  getWeaponsList().forEach((weapon) => {
+    if (rarity && (weapon.rarity || 1) !== rarity) return;
+    const sellable = getSellableWeaponCount(weapon.id);
+    if (sellable > 0) {
+      targets.push({ weapon, count: sellable, totalGain: sellable * getWeaponSellValue(weapon) });
+    }
+  });
+  return targets;
+}
 
-    gameData.story = story;
-    gameData.characters = characters;
-    gameData.battles = battles;
-    gameData.weapons = weapons;
-
-    loadSaveData();
-    sanitizeEquippedWeapons();
-
-    renderAdventureSection();
-    renderFormationSection();
-  } catch (error) {
-    console.error(error);
-    renderLoadError(error);
+function executeBulkSell(options = {}) {
+  const targets = getBulkSellTargets(options);
+  if (!targets.length) {
+    alert(options.rarity === 1 ? '売却できる★1重複武器がありません。' : '売却できる重複武器がありません。');
+    return;
   }
+  let gain = 0;
+  let soldCount = 0;
+  targets.forEach(({ weapon, count, totalGain }) => {
+    weaponState.ownedWeapons[weapon.id] = getOwnedWeaponCount(weapon.id) - count;
+    gain += totalGain;
+    soldCount += count;
+  });
+  resourceState.materialCore += gain;
+  saveGameState();
+  rerenderAllSections();
+  const label = options.rarity === 1 ? '★1重複一括売却' : '全部売却';
+  alert(`${label} を実行しました。\n売却本数：${soldCount}\n獲得コア：${gain}`);
+  showScreen('gacha');
 }
 
-function renderLoadError(error) {
-  const targets = [document.getElementById('screen-adventure'), document.getElementById('screen-formation')];
-  targets.forEach((screen) => {
-    if (!screen) return;
-    const container = screen.querySelector('.screen-inner');
-    if (!container) return;
-    clearDynamicCards(container);
+function trySellDuplicateWeapon(weaponId) {
+  const weapon = getWeaponById(weaponId);
+  if (!weapon) {
+    alert('武器データが見つかりません。');
+    return;
+  }
+  const sellable = getSellableWeaponCount(weaponId);
+  if (sellable <= 0) {
+    alert('この武器は売却できる重複分がありません。装備中の本数・最低1本・ロック/お気に入り保護を確認してください。');
+    return;
+  }
+  const gain = getWeaponSellValue(weapon);
+  weaponState.ownedWeapons[weaponId] = getOwnedWeaponCount(weaponId) - 1;
+  resourceState.materialCore += gain;
+  saveGameState();
+  rerenderAllSections();
+  alert(`${weapon.name} を1本売却し、マテリアルコア ${gain} を獲得しました。`);
+  showScreen('gacha');
+}
 
-    const errorCard = createInfoCard();
-    errorCard.innerHTML = `
-      <h3>データ読み込みエラー</h3>
-      <p class="muted">JSON の読み込みに失敗しました。</p>
-      <p class="muted">${escapeHtml(error.message)}</p>
-      <p class="muted">※ index.html を直接ダブルクリックすると fetch が失敗することがあります。ローカルサーバーまたは Cloudflare Pages 上で確認してください。</p>
-    `;
-    container.appendChild(errorCard);
+function getWeaponEnhanceLevel(weaponId) {
+  return clamp(Number(weaponState.enhancements[weaponId] || 0), 0, WEAPON_ENHANCE_MAX);
+}
+
+function getWeaponEnhanceCost(level) {
+  return (level + 1) * WEAPON_ENHANCE_BASE_COST;
+}
+
+function getEffectiveWeaponStats(weapon) {
+  if (!weapon) return { hp: 0, atk: 0, level: 0, rate: 0 };
+  const level = getWeaponEnhanceLevel(weapon.id);
+  const rate = 1 + (level * WEAPON_ENHANCE_RATE);
+  return {
+    hp: Math.floor((weapon.baseStats?.hp ?? 0) * rate),
+    atk: Math.floor((weapon.baseStats?.atk ?? 0) * rate),
+    level,
+    rate
+  };
+}
+
+function canEnhanceWeapon(weaponId) {
+  const weapon = getWeaponById(weaponId);
+  if (!weapon) return false;
+  if (getOwnedWeaponCount(weaponId) <= 0) return false;
+  const level = getWeaponEnhanceLevel(weaponId);
+  if (level >= WEAPON_ENHANCE_MAX) return false;
+  return resourceState.materialCore >= getWeaponEnhanceCost(level);
+}
+
+function tryEnhanceWeapon(weaponId) {
+  const weapon = getWeaponById(weaponId);
+  if (!weapon) {
+    alert('武器データが見つかりません。');
+    return false;
+  }
+  if (getOwnedWeaponCount(weaponId) <= 0) {
+    alert('この武器をまだ所持していません。');
+    return false;
+  }
+  const level = getWeaponEnhanceLevel(weaponId);
+  if (level >= WEAPON_ENHANCE_MAX) {
+    alert('この武器は最大強化済みです。');
+    return false;
+  }
+  const cost = getWeaponEnhanceCost(level);
+  if (resourceState.materialCore < cost) {
+    alert(`マテリアルコアが不足しています。必要数：${cost}`);
+    return false;
+  }
+  resourceState.materialCore -= cost;
+  weaponState.enhancements[weaponId] = level + 1;
+  saveGameState();
+  rerenderAllSections();
+  alert(`${weapon.name} を +${level + 1} に強化しました。`);
+  return true;
+}
+
+function enhanceWeaponFromGachaResult(index) {
+  const result = gachaState.lastResults[index];
+  if (!result) return;
+  const ok = tryEnhanceWeapon(result.weaponId);
+  if (ok) showScreen('gacha');
+}
+
+function equipWeaponToSlot(slotId, weaponId) {
+  const weapon = getWeaponById(weaponId);
+  if (!weapon) {
+    alert('武器データが見つかりません。');
+    return false;
+  }
+  if (!canEquipWeaponToSlot(weapon, slotId)) {
+    alert(`${weapon.name} は ${getSlotDisplayName(slotId)} に装備できません。`);
+    return false;
+  }
+  formationState.equippedWeapons[slotId] = weapon.id;
+  sanitizeEquippedWeapons();
+  saveGameState();
+  rerenderAllSections();
+  return true;
+}
+
+function equipWeaponToSlotFromGachaResult(index, slotId) {
+  const result = gachaState.lastResults[index];
+  if (!result) return;
+  const ok = equipWeaponToSlot(slotId, result.weaponId);
+  if (!ok) return;
+  const weapon = getWeaponById(result.weaponId);
+  alert(`${weapon?.name || result.name} を ${getSlotDisplayName(slotId)} に装備しました。`);
+  showScreen('gacha');
+}
+
+function sellWeaponFromGachaResult(index) {
+  const result = gachaState.lastResults[index];
+  if (!result) return;
+  trySellDuplicateWeapon(result.weaponId);
+}
+
+function canSellWeaponFromResult(result) {
+  return getSellableWeaponCount(result.weaponId) > 0;
+}
+
+// -------------------------
+// 最終値・比較表示
+// -------------------------
+
+function getEquippedWeaponObjectsFromMap(equipMap, weapons) {
+  return Object.values(equipMap).map((weaponId) => weapons.find((weapon) => weapon.id === weaponId)).filter(Boolean);
+}
+
+function aggregatePartySkills(equippedWeapons) {
+  const result = {};
+  equippedWeapons.forEach((weapon) => {
+    (weapon.partySkills || []).forEach((skill) => {
+      if (!result[skill.type]) result[skill.type] = { small: 0, middle: 0, large: 0 };
+      if (skill.tier === 'small') result[skill.type].small += 1;
+      if (skill.tier === 'middle') result[skill.type].middle += 1;
+      if (skill.tier === 'large') result[skill.type].large += 1;
+    });
   });
+  Object.keys(result).forEach((skillType) => {
+    const smallToMiddle = Math.floor(result[skillType].small / 2);
+    result[skillType].small %= 2;
+    result[skillType].middle += smallToMiddle;
+    const middleToLarge = Math.floor(result[skillType].middle / 2);
+    result[skillType].middle %= 2;
+    result[skillType].large += middleToLarge;
+  });
+  return result;
+}
+
+function computeAggregatedSkillRate(skillType, tiers) {
+  const defs = gameData.weapons?.meta?.partySkillDefs?.[skillType]?.tiers;
+  if (!defs) return 0;
+  return (tiers.small * (defs.small?.value || 0)) + (tiers.middle * (defs.middle?.value || 0)) + (tiers.large * (defs.large?.value || 0));
+}
+
+function computeFinalStatsForSlot(slotId, equipMap) {
+  const weapons = getWeaponsList();
+  const equipped = getEquippedWeaponObjectsFromMap(equipMap, weapons);
+  const aggregated = aggregatePartySkills(equipped);
+  const atkBonusRate = computeAggregatedSkillRate('atkUp', aggregated.atkUp || { small: 0, middle: 0, large: 0 });
+  const hpBonusRate = computeAggregatedSkillRate('hpUp', aggregated.hpUp || { small: 0, middle: 0, large: 0 });
+  const weapon = getWeaponById(equipMap[slotId]);
+  const enhanced = getEffectiveWeaponStats(weapon);
+
+  if (slotId === 'protagonist') {
+    const finalHp = Math.floor((1 + enhanced.hp) * (1 + hpBonusRate));
+    const finalAtk = Math.floor((1 + enhanced.atk) * (1 + atkBonusRate));
+    return { finalHp, finalAtk, weaponName: weapon?.name || '未装備' };
+  }
+
+  const char = getCharacterById(slotId);
+  const baseHp = char?.displayStats?.baseHp ?? 0;
+  const baseAtk = char?.displayStats?.baseAtk ?? 0;
+  return {
+    finalHp: Math.floor((baseHp + enhanced.hp) * (1 + hpBonusRate)),
+    finalAtk: Math.floor((baseAtk + enhanced.atk) * (1 + atkBonusRate)),
+    weaponName: weapon?.name || '未装備'
+  };
+}
+
+function buildEquipComparison(slotId, newWeaponId) {
+  const currentMap = { ...formationState.equippedWeapons };
+  const nextMap = { ...formationState.equippedWeapons, [slotId]: newWeaponId };
+  const currentStats = computeFinalStatsForSlot(slotId, currentMap);
+  const nextStats = computeFinalStatsForSlot(slotId, nextMap);
+  return {
+    slotName: getSlotDisplayName(slotId),
+    currentName: currentStats.weaponName,
+    newName: getWeaponById(newWeaponId)?.name || '未設定',
+    currentHp: currentStats.finalHp,
+    currentAtk: currentStats.finalAtk,
+    newHp: nextStats.finalHp,
+    newAtk: nextStats.finalAtk,
+    hpDiff: nextStats.finalHp - currentStats.finalHp,
+    atkDiff: nextStats.finalAtk - currentStats.finalAtk
+  };
+}
+
+function renderComparisonHtml(result) {
+  const weapon = getWeaponById(result.weaponId);
+  if (!weapon) return '<p class="muted">比較データなし</p>';
+  const targets = [
+    { slotId: 'protagonist', label: '主人公' },
+    { slotId: 'char_towa', label: 'トワ' },
+    { slotId: 'char_hinano', label: 'ヒナノ' },
+    { slotId: 'char_suzu', label: 'スズ' }
+  ];
+  const rows = targets.map((target) => {
+    if (!canEquipWeaponToSlot(weapon, target.slotId)) {
+      return `<li><strong>${escapeHtml(target.label)}</strong>：<span class="muted">装備不可</span></li>`;
+    }
+    const cmp = buildEquipComparison(target.slotId, result.weaponId);
+    const hpPrefix = cmp.hpDiff > 0 ? '+' : '';
+    const atkPrefix = cmp.atkDiff > 0 ? '+' : '';
+    return `
+      <li>
+        <strong>${escapeHtml(target.label)}</strong>：${escapeHtml(cmp.currentName)} → ${escapeHtml(cmp.newName)}
+        <br><span class="muted">最終HP ${escapeHtml(cmp.currentHp)} → ${escapeHtml(cmp.newHp)} (${escapeHtml(hpPrefix + cmp.hpDiff)}) / 最終ATK ${escapeHtml(cmp.currentAtk)} → ${escapeHtml(cmp.newAtk)} (${escapeHtml(atkPrefix + cmp.atkDiff)})</span>
+      </li>
+    `;
+  }).join('');
+  return `<div class="info-card" style="margin-top: 10px; background: rgba(15,22,48,0.65);"><h4 style="margin-top: 0; font-size: 13px;">装備後の最終値比較</h4><ul style="margin: 8px 0 0; padding-left: 18px;">${rows}</ul></div>`;
+}
+
+// -------------------------
+// ガチャ
+// -------------------------
+
+function getWeaponsByRarity(rarity) {
+  return getWeaponsList().filter((weapon) => (weapon.rarity || 1) === rarity);
+}
+
+function getWeightedRarity(weights) {
+  const total = Object.values(weights).reduce((sum, value) => sum + value, 0);
+  let roll = Math.random() * total;
+  for (const [rarity, weight] of Object.entries(weights)) {
+    roll -= weight;
+    if (roll <= 0) return Number(rarity);
+  }
+  return 1;
+}
+
+function drawWeaponWithMinimum(minRarity = 1) {
+  const adjusted = {};
+  Object.entries(GACHA_RARITY_WEIGHTS).forEach(([rarity, weight]) => {
+    if (Number(rarity) >= minRarity) adjusted[rarity] = weight;
+  });
+  const rarity = getWeightedRarity(Object.keys(adjusted).length ? adjusted : GACHA_RARITY_WEIGHTS);
+  let pool = getWeaponsByRarity(rarity).filter((weapon) => (weapon.rarity || 1) >= minRarity);
+  if (!pool.length) pool = getWeaponsList().filter((weapon) => (weapon.rarity || 1) >= minRarity);
+  if (!pool.length) pool = getWeaponsList();
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
+function createResultEntry(weapon, ownershipTracker, source, guaranteed = false) {
+  const beforeCount = Math.max(0, Math.floor(Number(ownershipTracker[weapon.id] || 0)));
+  ownershipTracker[weapon.id] = beforeCount + 1;
+  addOwnedWeapon(weapon.id, 1);
+  const result = {
+    weaponId: weapon.id,
+    name: weapon.name,
+    rarity: weapon.rarity || 1,
+    source,
+    isNew: beforeCount === 0,
+    guaranteed,
+    weaponType: weapon.weaponType,
+    at: new Date().toISOString()
+  };
+  gachaState.logs.unshift(result);
+  gachaState.logs = gachaState.logs.slice(0, GACHA_LOG_MAX);
+  return result;
+}
+
+function formatGachaResultText(results) {
+  return results.map((item, index) => `${index + 1}. ★${item.rarity || 1} ${item.name}${item.isNew ? ' [NEW]' : ' [重複]'}`).join('\n');
+}
+
+function resetRevealForResults(results) {
+  stopRevealTimer();
+  gachaState.lastResults = results;
+  gachaState.revealCount = 0;
+}
+
+function revealResultAtIndex(index) {
+  const result = gachaState.lastResults[index];
+  if (!result) return;
+  const oldCount = gachaState.revealCount;
+  if (index + 1 <= oldCount) return;
+  gachaState.revealCount = index + 1;
+  if (result.rarity >= 3) triggerRareFlash();
+  saveGameState();
+  renderGachaSection();
+}
+
+function revealNextCard() {
+  if (!gachaState.lastResults.length) return;
+  const nextIndex = clamp(gachaState.revealCount, 0, gachaState.lastResults.length - 1);
+  revealResultAtIndex(nextIndex);
+  if (gachaState.revealCount >= gachaState.lastResults.length) stopRevealTimer();
+}
+
+function revealSingleCard(index) {
+  revealResultAtIndex(index);
+}
+
+function revealAllCards() {
+  if (!gachaState.lastResults.length) return;
+  gachaState.lastResults.forEach((result, index) => {
+    if (index >= gachaState.revealCount && result.rarity >= 3) triggerRareFlash();
+  });
+  gachaState.revealCount = gachaState.lastResults.length;
+  stopRevealTimer();
+  saveGameState();
+  renderGachaSection();
+}
+
+function startSequentialReveal() {
+  if (!gachaState.lastResults.length) return;
+  stopRevealTimer();
+  gachaState.revealTimer = setInterval(() => {
+    if (gachaState.revealCount >= gachaState.lastResults.length) {
+      stopRevealTimer();
+      return;
+    }
+    revealNextCard();
+  }, 360);
+}
+
+function runSingleGacha() {
+  if (!getWeaponsList().length) {
+    alert('武器データがありません。');
+    return;
+  }
+  if (resourceState.materialCore < GACHA_SINGLE_COST) {
+    alert(`マテリアルコアが不足しています。必要数：${GACHA_SINGLE_COST}`);
+    return;
+  }
+  resourceState.materialCore -= GACHA_SINGLE_COST;
+  const picked = drawWeaponWithMinimum(1);
+  if (!picked) {
+    alert('ガチャ結果の生成に失敗しました。');
+    return;
+  }
+  const ownershipTracker = { ...weaponState.ownedWeapons };
+  const result = createResultEntry(picked, ownershipTracker, 'single', false);
+  resetRevealForResults([result]);
+  saveGameState();
+  rerenderAllSections();
+  alert(`シングルガチャ結果\n\n★${result.rarity} ${result.name}${result.isNew ? ' [NEW]' : ' [重複]'}`);
+  showScreen('gacha');
+}
+
+function runTenGacha() {
+  if (!getWeaponsList().length) {
+    alert('武器データがありません。');
+    return;
+  }
+  if (resourceState.materialCore < GACHA_TEN_COST) {
+    alert(`マテリアルコアが不足しています。必要数：${GACHA_TEN_COST}`);
+    return;
+  }
+  resourceState.materialCore -= GACHA_TEN_COST;
+  const ownershipTracker = { ...weaponState.ownedWeapons };
+  const results = [];
+  for (let i = 0; i < 9; i += 1) {
+    const picked = drawWeaponWithMinimum(1);
+    if (picked) results.push(createResultEntry(picked, ownershipTracker, 'ten', false));
+  }
+  const guaranteedWeapon = drawWeaponWithMinimum(2) || drawWeaponWithMinimum(1);
+  if (guaranteedWeapon) {
+    results.push(createResultEntry(guaranteedWeapon, ownershipTracker, 'ten', true));
+  }
+  resetRevealForResults(results);
+  saveGameState();
+  rerenderAllSections();
+  alert(`10連ガチャ結果（10枠目は★2以上保証）\n\n${formatGachaResultText(results)}`);
+  showScreen('gacha');
+}
+
+function renderGachaLog() {
+  if (!gachaState.logs.length) {
+    return '<p class="muted">まだガチャ結果はありません。シングルまたは10連ガチャを回して武器を入手できます。</p>';
+  }
+  return `<ul>${gachaState.logs.map((log) => `<li><strong>★${escapeHtml(log.rarity)}</strong> ${escapeHtml(log.name)} <span class="muted">(${escapeHtml(log.weaponId)} / ${escapeHtml(log.source === 'ten' ? '10連' : '単発')} / ${escapeHtml(log.isNew ? 'NEW' : '重複')})</span></li>`).join('')}</ul>`;
+}
+
+function renderEquipButtonsHtml(result, index) {
+  const weapon = getWeaponById(result.weaponId);
+  const targets = [
+    { slotId: 'protagonist', label: '主人公' },
+    { slotId: 'char_towa', label: 'トワ' },
+    { slotId: 'char_hinano', label: 'ヒナノ' },
+    { slotId: 'char_suzu', label: 'スズ' }
+  ];
+  return `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%;">
+      ${targets.map((target) => {
+        const disabled = canEquipWeaponToSlot(weapon, target.slotId) ? '' : 'disabled';
+        return `<button class="text-button gacha-card-equip" data-gacha-equip-index="${escapeHtml(index)}" data-gacha-equip-slot="${escapeHtml(target.slotId)}" ${disabled}>${escapeHtml(target.label)} に装備</button>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderHiddenGachaCard(result, index) {
+  const rarityColor = getRarityColor(result.rarity);
+  const isRare = result.rarity >= 3;
+  const hiddenGlow = isRare ? `0 0 24px rgba(255,216,106,0.35)` : `0 0 14px rgba(143,212,255,0.18)`;
+  return `
+    <div style="border: 1px dashed ${rarityColor}; border-radius: 16px; padding: 14px; background: linear-gradient(180deg, rgba(7,10,22,1) 0%, rgba(4,6,13,1) 100%); min-height: 310px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: ${hiddenGlow}; text-align: center;">
+      <div style="font-size: 20px; letter-spacing: 0.08em; color: ${rarityColor}; font-weight: 800;">REVEAL</div>
+      <div style="font-size: 12px; color: #94a3b8; margin-top: 10px;">${escapeHtml(index + 1)} 枠目</div>
+      <button class="text-button gacha-card-reveal-one" data-gacha-reveal-index="${escapeHtml(index)}" style="margin-top: 18px;">めくる</button>
+    </div>
+  `;
+}
+
+function renderRevealedGachaCard(result, index) {
+  const rarityColor = getRarityColor(result.rarity);
+  const badgeBg = result.isNew ? '#22c55e' : '#64748b';
+  const guaranteeBadge = result.guaranteed ? '<div style="font-size: 11px; color: #fde68a; margin-top: 6px;">保証枠</div>' : '';
+  const weapon = getWeaponById(result.weaponId);
+  const sellValue = getWeaponSellValue(weapon);
+  const canSell = canSellWeaponFromResult(result);
+  const enhanceLevel = getWeaponEnhanceLevel(result.weaponId);
+  const enhanceCost = getWeaponEnhanceCost(enhanceLevel);
+  const canEnhance = canEnhanceWeapon(result.weaponId);
+  const enhanceLabel = enhanceLevel >= WEAPON_ENHANCE_MAX ? '強化最大' : `強化する（${enhanceCost} コア）`;
+  const protectedLabel = isWeaponProtected(result.weaponId)
+    ? `<div style="font-size: 11px; color: #facc15; margin-top: 6px;">${isWeaponFavorite(result.weaponId) ? 'お気に入り' : 'ロック中'}</div>`
+    : '';
+  const extraGlow = result.rarity === 3
+    ? '0 0 28px rgba(255,216,106,0.55), 0 8px 26px rgba(0,0,0,0.35)'
+    : result.isNew
+      ? '0 0 20px rgba(34,197,94,0.35), 0 8px 20px rgba(0,0,0,0.25)'
+      : '0 8px 20px rgba(0,0,0,0.25)';
+  const newSpark = result.isNew ? `<div style="font-size: 11px; color: #86efac; margin-top: 6px;">NEWエフェクト</div>` : '';
+  const favLabel = isWeaponFavorite(result.weaponId) ? '★ お気に入り解除' : '☆ お気に入り登録';
+  return `
+    <div style="border: 1px solid ${rarityColor}; border-radius: 16px; padding: 14px; background: ${getRarityBg(result.rarity)}; min-height: 420px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: ${extraGlow}; animation: gachaFlipIn 0.45s ease; ${result.isNew ? 'animation: gachaFlipIn 0.45s ease, gachaNewPulse 1.4s ease-in-out infinite;' : ''}">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+          <span style="font-size: 13px; color: ${rarityColor}; font-weight: 800; text-shadow: ${result.rarity === 3 ? '0 0 10px rgba(255,216,106,0.55)' : 'none'};">${getRarityLabel(result.rarity)}</span>
+          <span style="font-size: 11px; padding: 4px 8px; border-radius: 999px; background: ${badgeBg}; color: white; box-shadow: ${result.isNew ? '0 0 10px rgba(34,197,94,0.55)' : 'none'};">${escapeHtml(result.isNew ? 'NEW' : '重複')}</span>
+        </div>
+        <div style="font-size: 12px; color: #94a3b8; margin-top: 6px;">${escapeHtml(index + 1)} 枠目</div>
+        <div style="margin-top: 14px; font-size: 18px; font-weight: 800; line-height: 1.4; ${result.rarity === 3 ? 'color: #fff6cf;' : ''}">${escapeHtml(result.name)}</div>
+        <div style="margin-top: 8px; font-size: 12px; color: #cbd5e1;">${escapeHtml(result.weaponId)} / ${escapeHtml(getWeaponTypeDisplay(weapon))} / 強化 +${escapeHtml(enhanceLevel)}</div>
+        ${guaranteeBadge}
+        ${newSpark}
+        ${protectedLabel}
+        ${renderComparisonHtml(result)}
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+        ${renderEquipButtonsHtml(result, index)}
+        <button class="text-button gacha-card-enhance" data-gacha-enhance-index="${escapeHtml(index)}" ${canEnhance ? '' : 'disabled'}>${escapeHtml(enhanceLabel)}</button>
+        <button class="text-button gacha-card-favorite" data-gacha-favorite-index="${escapeHtml(index)}">${escapeHtml(favLabel)}</button>
+        <button class="text-button gacha-card-sell" data-gacha-sell-index="${escapeHtml(index)}" ${canSell ? '' : 'disabled'}>売却する（${escapeHtml(sellValue)} コア）</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderLastGachaResults() {
+  ensureGachaFxStyles();
+  if (!gachaState.lastResults.length) {
+    return '<p class="muted">まだ最新の結果はありません。</p>';
+  }
+  const cards = gachaState.lastResults.map((result, index) => {
+    const revealed = index < gachaState.revealCount;
+    return revealed ? renderRevealedGachaCard(result, index) : renderHiddenGachaCard(result, index);
+  }).join('');
+  const cols = gachaState.lastResults.length >= 10 ? 'repeat(5, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(220px, 1fr))';
+  return `
+    <div class="button-group" style="max-width: none; flex-direction: row; flex-wrap: wrap; margin-bottom: 12px;">
+      <button class="text-button" id="gacha-reveal-next" ${gachaState.revealCount >= gachaState.lastResults.length ? 'disabled' : ''}>1枚ずつめくる</button>
+      <button class="text-button" id="gacha-reveal-auto" ${gachaState.revealCount >= gachaState.lastResults.length ? 'disabled' : ''}>順番にめくる</button>
+      <button class="text-button" id="gacha-reveal-all" ${gachaState.revealCount >= gachaState.lastResults.length ? 'disabled' : ''}>すべてめくる</button>
+    </div>
+    <div style="display: grid; grid-template-columns: ${cols}; gap: 12px; margin-top: 8px;">${cards}</div>
+  `;
+}
+
+function renderOwnedWeaponsSummary(weapons, weaponTypeMap) {
+  const ownedWeapons = weapons.filter((weapon) => getOwnedWeaponCount(weapon.id) > 0);
+  if (!ownedWeapons.length) return '<p class="muted">まだ武器を所持していません。ガチャを回して武器を入手しましょう。</p>';
+  const grouped = {};
+  ownedWeapons.forEach((weapon) => {
+    const rarity = weapon.rarity || 1;
+    if (!grouped[rarity]) grouped[rarity] = [];
+    grouped[rarity].push(weapon);
+  });
+  return [1,2,3].map((rarity) => {
+    const list = grouped[rarity] || [];
+    if (!list.length) return `<h4>★${rarity}</h4><p class="muted">なし</p>`;
+    return `
+      <h4>★${rarity}</h4>
+      <ul>
+        ${list.map((weapon) => {
+          const typeDisplay = weapon.weaponTypeDisplay || weaponTypeMap.get(weapon.weaponType)?.displayName || weapon.weaponType;
+          const enhance = getWeaponEnhanceLevel(weapon.id);
+          const sellable = getSellableWeaponCount(weapon.id);
+          const sellValue = getWeaponSellValue(weapon);
+          const disabled = sellable <= 0 ? 'disabled' : '';
+          const marks = `${isWeaponFavorite(weapon.id) ? ' / お気に入り' : ''}${isWeaponLocked(weapon.id) ? ' / ロック' : ''}`;
+          return `
+            <li style="margin-bottom: 10px;">
+              <strong>${escapeHtml(weapon.name)}</strong>
+              <span class="muted">[${escapeHtml(typeDisplay)} / 所持 ${escapeHtml(getOwnedWeaponCount(weapon.id))} / +${escapeHtml(enhance)}${escapeHtml(marks)}]</span><br>
+              <span class="muted">売却可能数：${escapeHtml(sellable)} / 売却額：1本 ${escapeHtml(sellValue)} コア</span><br>
+              <button class="text-button weapon-sell-button" data-weapon-sell="${escapeHtml(weapon.id)}" ${disabled}>重複1本を売却する</button>
+            </li>
+          `;
+        }).join('')}
+      </ul>
+    `;
+  }).join('');
+}
+
+function attachGachaEvents() {
+  document.getElementById('gacha-single-button')?.addEventListener('click', () => runSingleGacha());
+  document.getElementById('gacha-ten-button')?.addEventListener('click', () => runTenGacha());
+  document.getElementById('gacha-reveal-next')?.addEventListener('click', () => revealNextCard());
+  document.getElementById('gacha-reveal-auto')?.addEventListener('click', () => startSequentialReveal());
+  document.getElementById('gacha-reveal-all')?.addEventListener('click', () => revealAllCards());
+  document.getElementById('gacha-bulk-sell-star1')?.addEventListener('click', () => executeBulkSell({ rarity: 1 }));
+  document.getElementById('gacha-bulk-sell-all')?.addEventListener('click', () => executeBulkSell({}));
+  document.getElementById('gacha-lock-high-rarity')?.addEventListener('click', () => lockHighRarityWeapons());
+  document.querySelectorAll('[data-gacha-reveal-index]').forEach((button) => {
+    button.addEventListener('click', () => revealSingleCard(Number(button.getAttribute('data-gacha-reveal-index'))));
+  });
+  document.querySelectorAll('[data-weapon-sell]').forEach((button) => {
+    button.addEventListener('click', () => trySellDuplicateWeapon(button.getAttribute('data-weapon-sell')));
+  });
+  document.querySelectorAll('[data-gacha-equip-index]').forEach((button) => {
+    const index = Number(button.getAttribute('data-gacha-equip-index'));
+    const slotId = button.getAttribute('data-gacha-equip-slot');
+    button.addEventListener('click', () => equipWeaponToSlotFromGachaResult(index, slotId));
+  });
+  document.querySelectorAll('[data-gacha-enhance-index]').forEach((button) => {
+    const index = Number(button.getAttribute('data-gacha-enhance-index'));
+    button.addEventListener('click', () => enhanceWeaponFromGachaResult(index));
+  });
+  document.querySelectorAll('[data-gacha-favorite-index]').forEach((button) => {
+    const index = Number(button.getAttribute('data-gacha-favorite-index'));
+    button.addEventListener('click', () => toggleFavoriteFromGachaResult(index));
+  });
+  document.querySelectorAll('[data-gacha-sell-index]').forEach((button) => {
+    button.addEventListener('click', () => sellWeaponFromGachaResult(Number(button.getAttribute('data-gacha-sell-index'))));
+  });
+}
+
+function renderGachaSection() {
+  const gachaScreen = document.getElementById('screen-gacha');
+  if (!gachaScreen || !gameData.weapons) return;
+  const container = gachaScreen.querySelector('.screen-inner');
+  if (!container) return;
+  clearDynamicCards(container);
+
+  const weapons = getWeaponsList();
+  const weaponTypeMap = getWeaponTypeMap();
+  const bulkStar1Targets = getBulkSellTargets({ rarity: 1 });
+  const bulkAllTargets = getBulkSellTargets({});
+  const bulkStar1Count = bulkStar1Targets.reduce((sum, item) => sum + item.count, 0);
+  const bulkStar1Gain = bulkStar1Targets.reduce((sum, item) => sum + item.totalGain, 0);
+  const bulkAllCount = bulkAllTargets.reduce((sum, item) => sum + item.count, 0);
+  const bulkAllGain = bulkAllTargets.reduce((sum, item) => sum + item.totalGain, 0);
+  const favoriteCount = Object.keys(weaponState.favoriteWeapons).length;
+  const lockedCount = Object.keys(weaponState.lockedWeapons).length;
+
+  const resourceCard = createInfoCard();
+  resourceCard.innerHTML = renderResourceSummaryCard('ガチャ・売却に使う所持数');
+
+  const gachaCard = createInfoCard();
+  gachaCard.innerHTML = `
+    <h3>武器ガチャ（仮）</h3>
+    <p class="muted">シングルガチャは ${GACHA_SINGLE_COST} コア、10連ガチャは ${GACHA_TEN_COST} コアです。</p>
+    <ul>
+      <li>通常確率：★1 70% / ★2 25% / ★3 5%</li>
+      <li>10連の10枠目は <strong>★2以上1枠保証（仮）</strong></li>
+    </ul>
+    <div class="button-group" style="max-width: none; flex-direction: row; flex-wrap: wrap;">
+      <button class="text-button" id="gacha-single-button" ${resourceState.materialCore < GACHA_SINGLE_COST ? 'disabled' : ''}>シングルガチャ（${GACHA_SINGLE_COST} コア）</button>
+      <button class="text-button" id="gacha-ten-button" ${resourceState.materialCore < GACHA_TEN_COST ? 'disabled' : ''}>10連ガチャ（${GACHA_TEN_COST} コア）</button>
+    </div>
+    <p class="muted" style="margin-top: 12px;">現在は仮仕様です。重複した武器は売却してコアに戻せます。</p>
+  `;
+
+  const latestCard = createInfoCard();
+  latestCard.innerHTML = `<h3>最新のガチャ結果</h3><p class="muted">カード内で NEW / 重複 を区別し、その場で <strong>装備後の最終HP / 最終ATK 比較表示 / キャラ別装備 / 強化 / お気に入り / 売却</strong> を実行できます。未公開カードは「めくる」で順番に表示できます。</p>${renderLastGachaResults()}`;
+
+  const bulkCard = createInfoCard();
+  bulkCard.innerHTML = `
+    <h3>一括操作</h3>
+    <div class="status-row"><span>★1重複 売却対象</span><strong>${escapeHtml(bulkStar1Count)} 本 / ${escapeHtml(bulkStar1Gain)} コア</strong></div>
+    <div class="status-row"><span>全部売却 対象</span><strong>${escapeHtml(bulkAllCount)} 本 / ${escapeHtml(bulkAllGain)} コア</strong></div>
+    <div class="status-row"><span>ロック数 / お気に入り数</span><strong>${escapeHtml(lockedCount)} / ${escapeHtml(favoriteCount)}</strong></div>
+    <div class="button-group" style="max-width: none; flex-direction: row; flex-wrap: wrap; margin-top: 12px;">
+      <button class="text-button" id="gacha-bulk-sell-star1" ${bulkStar1Count > 0 ? '' : 'disabled'}>★1重複を一括売却</button>
+      <button class="text-button" id="gacha-bulk-sell-all" ${bulkAllCount > 0 ? '' : 'disabled'}>全部売却（売却可能分）</button>
+      <button class="text-button" id="gacha-lock-high-rarity">★2以上だけロック</button>
+    </div>
+    <p class="muted" style="margin-top: 12px;">ロック済み・お気に入り済み武器は個別売却 / 一括売却の対象外になります。</p>
+  `;
+
+  const logCard = createInfoCard();
+  logCard.innerHTML = `<h3>最近のガチャ履歴</h3>${renderGachaLog()}`;
+
+  const ownedCard = createInfoCard();
+  ownedCard.innerHTML = `
+    <h3>所持武器一覧 / 重複売却</h3>
+    <p class="muted">所持武器と重複売却の詳細です。</p>
+    ${renderOwnedWeaponsSummary(weapons, weaponTypeMap)}
+  `;
+
+  container.appendChild(resourceCard);
+  container.appendChild(gachaCard);
+  container.appendChild(latestCard);
+  container.appendChild(bulkCard);
+  container.appendChild(logCard);
+  container.appendChild(ownedCard);
+  attachGachaEvents();
 }
 
 // -------------------------
@@ -280,7 +1119,6 @@ function renderLoadError(error) {
 function renderAdventureSection() {
   const adventureScreen = document.getElementById('screen-adventure');
   if (!adventureScreen || !gameData.story || !gameData.battles) return;
-
   const container = adventureScreen.querySelector('.screen-inner');
   if (!container) return;
   clearDynamicCards(container);
@@ -288,10 +1126,13 @@ function renderAdventureSection() {
   const stories = gameData.story.stories || [];
   const battles = gameData.battles.battles || [];
   const chapterTitle = gameData.story.meta?.chapterTitle || '第1章';
-  const characterMap = new Map((gameData.characters?.characters || []).map((c) => [c.id, c]));
+  const characterMap = new Map(getCharactersList().map((c) => [c.id, c]));
   const nodeOrder = ['story_1_1', 'story_1_2', 'battle_1_1', 'story_1_3', 'battle_1_2', 'battle_1_3'];
   const storyMap = new Map(stories.map((item) => [item.id, item]));
   const battleMap = new Map(battles.map((item) => [item.id, item]));
+
+  const resourceCard = createInfoCard();
+  resourceCard.innerHTML = renderResourceSummaryCard('現在の所持数');
 
   const timelineCard = createInfoCard();
   timelineCard.innerHTML = `
@@ -300,38 +1141,16 @@ function renderAdventureSection() {
       ${nodeOrder.map((nodeId) => {
         const story = storyMap.get(nodeId);
         const battle = battleMap.get(nodeId);
-
         if (story) {
           const unlockText = getStoryUnlockText(story, characterMap);
-          return `
-            <li>
-              <strong>ストーリー</strong>：${escapeHtml(story.title)}
-              <span class="muted">(${escapeHtml(story.id)})</span><br>
-              ${unlockText ? `<span class="muted">${escapeHtml(unlockText)}</span><br>` : ''}
-              <button class="text-button story-open-button" data-story-id="${escapeHtml(story.id)}">本文を読む</button>
-            </li>
-          `;
+          return `<li><strong>ストーリー</strong>：${escapeHtml(story.title)} <span class="muted">(${escapeHtml(story.id)})</span><br>${unlockText ? `<span class="muted">${escapeHtml(unlockText)}</span><br>` : ''}<button class="text-button story-open-button" data-story-id="${escapeHtml(story.id)}">本文を読む</button></li>`;
         }
-
         if (battle) {
-          const reward = battle.firstClearReward
-            ? `初回: コア ${battle.firstClearReward.materialCore ?? 0} / EXP ${battle.firstClearReward.exp ?? 0}`
-            : '報酬未設定';
+          const reward = battle.firstClearReward ? `初回: コア ${battle.firstClearReward.materialCore ?? 0} / EXP ${battle.firstClearReward.exp ?? 0}` : '報酬未設定';
           const repeat = battle.repeatReward ? `再挑戦: EXP ${battle.repeatReward.exp ?? 0}` : '';
           const clearedMark = progressState.clearedBattles.includes(battle.id) ? ' / クリア済み' : '';
-          return `
-            <li>
-              <strong>バトル</strong>：${escapeHtml(battle.title)}
-              <span class="muted">(${escapeHtml(battle.id)}${escapeHtml(clearedMark)})</span><br>
-              <span class="muted">${escapeHtml(reward)}</span>
-              ${repeat ? `<br><span class="muted">${escapeHtml(repeat)}</span>` : ''}
-              <br>
-              <button class="text-button battle-preview-button" data-battle-id="${escapeHtml(battle.id)}">バトル情報</button>
-              <button class="text-button battle-open-button" data-battle-id="${escapeHtml(battle.id)}">バトルUIを開く</button>
-            </li>
-          `;
+          return `<li><strong>バトル</strong>：${escapeHtml(battle.title)} <span class="muted">(${escapeHtml(battle.id)}${escapeHtml(clearedMark)})</span><br><span class="muted">${escapeHtml(reward)}</span>${repeat ? `<br><span class="muted">${escapeHtml(repeat)}</span>` : ''}<br><button class="text-button battle-preview-button" data-battle-id="${escapeHtml(battle.id)}">バトル情報</button> <button class="text-button battle-open-button" data-battle-id="${escapeHtml(battle.id)}">バトルUIを開く</button></li>`;
         }
-
         return `<li><strong>未設定</strong>：${escapeHtml(nodeId)}</li>`;
       }).join('')}
     </ol>
@@ -343,28 +1162,21 @@ function renderAdventureSection() {
     <h3>第1章の報酬</h3>
     <ul>
       <li>各バトル初回クリア：マテリアルコア 5個</li>
-      <li>第1章クリア：マテリアルコア 50個</li>
       <li>再挑戦報酬：経験値のみ</li>
+      <li>ガチャや武器強化にコアを使えます</li>
     </ul>
   `;
 
   const readerCard = createInfoCard('story-reader-card');
-  readerCard.innerHTML = `
-    <h3>ストーリー本文ビューア</h3>
-    <p class="muted">「本文を読む」を押すと、ここに本文が表示されます。</p>
-  `;
-
+  readerCard.innerHTML = '<h3>ストーリー本文ビューア</h3><p class="muted">「本文を読む」を押すと、ここに本文が表示されます。</p>';
   const battleUiCard = createInfoCard('battle-ui-card');
-  battleUiCard.innerHTML = `
-    <h3>バトル最小UI</h3>
-    <p class="muted">「バトルUIを開く」を押すと、ここに主人公 / 味方 / 敵 / 行動ボタンの最小UIが表示されます。</p>
-  `;
+  battleUiCard.innerHTML = '<h3>バトル最小UI</h3><p class="muted">「バトルUIを開く」を押すと、ここに主人公 / 味方 / 敵 / 行動ボタンの最小UIが表示されます。</p>';
 
+  container.appendChild(resourceCard);
   container.appendChild(timelineCard);
   container.appendChild(rewardCard);
   container.appendChild(readerCard);
   container.appendChild(battleUiCard);
-
   attachAdventureButtons();
 }
 
@@ -376,15 +1188,9 @@ function getStoryUnlockText(story, characterMap) {
 }
 
 function attachAdventureButtons() {
-  document.querySelectorAll('.story-open-button').forEach((button) => {
-    button.addEventListener('click', () => openStoryReader(button.getAttribute('data-story-id')));
-  });
-  document.querySelectorAll('.battle-preview-button').forEach((button) => {
-    button.addEventListener('click', () => openBattlePreview(button.getAttribute('data-battle-id')));
-  });
-  document.querySelectorAll('.battle-open-button').forEach((button) => {
-    button.addEventListener('click', () => openBattleUi(button.getAttribute('data-battle-id')));
-  });
+  document.querySelectorAll('.story-open-button').forEach((button) => button.addEventListener('click', () => openStoryReader(button.getAttribute('data-story-id'))));
+  document.querySelectorAll('.battle-preview-button').forEach((button) => button.addEventListener('click', () => openBattlePreview(button.getAttribute('data-battle-id'))));
+  document.querySelectorAll('.battle-open-button').forEach((button) => button.addEventListener('click', () => openBattleUi(button.getAttribute('data-battle-id'))));
 }
 
 // -------------------------
@@ -402,54 +1208,32 @@ function openStoryReader(storyId) {
 function renderStoryReader() {
   const readerCard = document.getElementById('story-reader-card');
   if (!readerCard) return;
-
   const story = (gameData.story?.stories || []).find((item) => item.id === storyReaderState.currentStoryId);
   if (!story) {
-    readerCard.innerHTML = `
-      <h3>ストーリー本文ビューア</h3>
-      <p class="muted">「本文を読む」を押すと、ここに本文が表示されます。</p>
-    `;
+    readerCard.innerHTML = '<h3>ストーリー本文ビューア</h3><p class="muted">「本文を読む」を押すと、ここに本文が表示されます。</p>';
     return;
   }
-
   const scenes = story.scenes || [];
   const maxIndex = scenes.length - 1;
   const currentIndex = clamp(storyReaderState.currentSceneIndex, 0, Math.max(0, maxIndex));
   storyReaderState.currentSceneIndex = currentIndex;
   const scene = scenes[currentIndex] || {};
-
   readerCard.innerHTML = `
     <h3>${escapeHtml(story.title)}</h3>
     <p class="muted">${escapeHtml(story.id)} / ${currentIndex + 1} / ${Math.max(1, scenes.length)}</p>
     <div class="status-row"><span>話者</span><strong>${escapeHtml(scene.speaker || 'ナレーション')}</strong></div>
-    <div class="status-row"><span>種類</span><strong>${escapeHtml(scene.speakerType || 'dialogue')}</strong></div>
     <div class="status-row"><span>背景</span><strong>${escapeHtml(scene.bg || '未設定')}</strong></div>
     <div class="status-row"><span>BGM</span><strong>${escapeHtml(scene.bgm || '未設定')}</strong></div>
-    <div class="status-row"><span>SE</span><strong>${escapeHtml(scene.sfx || 'なし')}</strong></div>
-    <div class="status-row"><span>感情</span><strong>${escapeHtml(scene.emotion || 'normal')}</strong></div>
-    <div class="info-card" style="margin-top: 16px;">
-      <p style="white-space: pre-wrap; margin: 0;">${escapeHtml(scene.text || '')}</p>
-    </div>
+    <div class="info-card" style="margin-top: 16px;"><p style="white-space: pre-wrap; margin: 0;">${escapeHtml(scene.text || '')}</p></div>
     <div class="button-group" style="margin-top: 18px; max-width: none; flex-direction: row; flex-wrap: wrap;">
       <button class="text-button" id="story-prev-button">前へ</button>
       <button class="text-button" id="story-next-button">次へ</button>
       <button class="text-button" id="story-close-button">閉じる</button>
     </div>
   `;
-
-  document.getElementById('story-prev-button')?.addEventListener('click', () => {
-    storyReaderState.currentSceneIndex = Math.max(0, storyReaderState.currentSceneIndex - 1);
-    renderStoryReader();
-  });
-  document.getElementById('story-next-button')?.addEventListener('click', () => {
-    storyReaderState.currentSceneIndex = Math.min(Math.max(0, maxIndex), storyReaderState.currentSceneIndex + 1);
-    renderStoryReader();
-  });
-  document.getElementById('story-close-button')?.addEventListener('click', () => {
-    storyReaderState.currentStoryId = null;
-    storyReaderState.currentSceneIndex = 0;
-    renderStoryReader();
-  });
+  document.getElementById('story-prev-button')?.addEventListener('click', () => { storyReaderState.currentSceneIndex = Math.max(0, storyReaderState.currentSceneIndex - 1); renderStoryReader(); });
+  document.getElementById('story-next-button')?.addEventListener('click', () => { storyReaderState.currentSceneIndex = Math.min(Math.max(0, maxIndex), storyReaderState.currentSceneIndex + 1); renderStoryReader(); });
+  document.getElementById('story-close-button')?.addEventListener('click', () => { storyReaderState.currentStoryId = null; storyReaderState.currentSceneIndex = 0; renderStoryReader(); });
 }
 
 // -------------------------
@@ -460,34 +1244,20 @@ function openBattlePreview(battleId) {
   const battle = (gameData.battles?.battles || []).find((item) => item.id === battleId);
   const readerCard = document.getElementById('story-reader-card');
   if (!battle || !readerCard) return;
-
   const enemyTemplates = new Map((gameData.battles?.enemyTemplates || []).map((enemy) => [enemy.id, enemy]));
-  const enemyList = (battle.enemyGroup || []).map((enemy) => {
-    const tmpl = enemyTemplates.get(enemy.enemyId);
-    return `${tmpl?.name || enemy.enemyId} (${enemy.instanceId})`;
-  });
-
+  const enemyList = (battle.enemyGroup || []).map((enemy) => `${enemyTemplates.get(enemy.enemyId)?.name || enemy.enemyId} (${enemy.instanceId})`);
   readerCard.innerHTML = `
     <h3>${escapeHtml(battle.title)}</h3>
     <p class="muted">${escapeHtml(battle.id)} / ${escapeHtml(battle.battleType)}</p>
-    <div class="status-row"><span>推奨レベル</span><strong>${escapeHtml(battle.recommendedLevel ?? '-')}</strong></div>
-    <div class="status-row"><span>難易度</span><strong>${escapeHtml(battle.difficulty ?? '-')}</strong></div>
     <div class="info-card" style="margin-top: 16px;">
       <h3 style="margin-top: 0;">敵編成</h3>
       <ul>${enemyList.map((name) => `<li>${escapeHtml(name)}</li>`).join('')}</ul>
       <p class="muted">初回報酬：コア ${escapeHtml(battle.firstClearReward?.materialCore ?? 0)} / EXP ${escapeHtml(battle.firstClearReward?.exp ?? 0)}</p>
       <p class="muted">再挑戦報酬：EXP ${escapeHtml(battle.repeatReward?.exp ?? 0)}</p>
     </div>
-    <div class="button-group" style="margin-top: 18px; max-width: none; flex-direction: row;">
-      <button class="text-button" id="battle-close-button">閉じる</button>
-    </div>
+    <div class="button-group" style="margin-top: 18px; max-width: none; flex-direction: row;"><button class="text-button" id="battle-close-button">閉じる</button></div>
   `;
-
-  document.getElementById('battle-close-button')?.addEventListener('click', () => {
-    storyReaderState.currentStoryId = null;
-    storyReaderState.currentSceneIndex = 0;
-    renderStoryReader();
-  });
+  document.getElementById('battle-close-button')?.addEventListener('click', () => { storyReaderState.currentStoryId = null; storyReaderState.currentSceneIndex = 0; renderStoryReader(); });
 }
 
 // -------------------------
@@ -495,101 +1265,83 @@ function openBattlePreview(battleId) {
 // -------------------------
 
 function getAvailableWeaponsForSlot(slot, weapons) {
-  if (slot.id === 'protagonist' || !slot.affinity || !slot.affinity.length) return weapons;
-  return weapons.filter((weapon) => slot.affinity.includes(weapon.weaponType));
+  const usageMap = getEquippedWeaponUsageMap();
+  return weapons.filter((weapon) => {
+    if (!canEquipWeaponToSlot(weapon, slot.id)) return false;
+    const owned = getOwnedWeaponCount(weapon.id);
+    const currentEquipped = formationState.equippedWeapons[slot.id] === weapon.id ? 1 : 0;
+    const usedElsewhere = (usageMap.get(weapon.id) || 0) - currentEquipped;
+    return owned - usedElsewhere > 0;
+  });
 }
 
 function renderSelectedWeaponSummary(weapon) {
   const skills = (weapon.partySkills || []).map((skill) => `${skill.displayName}（${skill.tierLabel}）`).join(' / ') || 'なし';
+  const enhanced = getEffectiveWeaponStats(weapon);
   return `
-    <p style="margin: 0;"><strong>${escapeHtml(weapon.name)}</strong></p>
-    <p class="muted" style="margin: 6px 0 0;">HP ${escapeHtml(weapon.baseStats?.hp ?? 0)} / ATK ${escapeHtml(weapon.baseStats?.atk ?? 0)}</p>
+    <p style="margin: 0;"><strong>${escapeHtml(weapon.name)}</strong> <span class="muted">(+${escapeHtml(enhanced.level)})</span></p>
+    <p class="muted" style="margin: 6px 0 0;">HP ${escapeHtml(enhanced.hp)} / ATK ${escapeHtml(enhanced.atk)}</p>
     <p class="muted" style="margin: 6px 0 0;">スキル：${escapeHtml(skills)}</p>
   `;
 }
 
 function renderEquipmentUi(characters, weapons, weaponTypeMap) {
-  const slots = [
-    { id: 'protagonist', name: '主人公', affinity: null },
-    ...characters.map((char) => ({ id: char.id, name: char.name, affinity: char.weaponAffinity || [] }))
-  ];
-
+  const slots = [{ id: 'protagonist', name: '主人公' }, ...characters.map((char) => ({ id: char.id, name: char.name }))];
   return `
     <h3>装備設定</h3>
-    <p class="muted">主人公 / トワ / ヒナノ / スズ の4枠に武器を設定できます。主人公は全武器、メンバーは適性武器のみ表示しています。</p>
+    <p class="muted">主人公 / トワ / ヒナノ / スズ の4枠に、所持している武器だけ装備できます。</p>
     ${slots.map((slot) => {
       const currentWeaponId = formationState.equippedWeapons[slot.id] || '';
       const availableWeapons = getAvailableWeaponsForSlot(slot, weapons);
-      const selectedWeapon = weapons.find((weapon) => weapon.id === currentWeaponId);
-      const options = [
-        `<option value="">未装備</option>`,
-        ...availableWeapons.map((weapon) => {
-          const selected = weapon.id === currentWeaponId ? 'selected' : '';
-          const typeDisplay = weapon.weaponTypeDisplay || weaponTypeMap.get(weapon.weaponType)?.displayName || weapon.weaponType;
-          return `<option value="${escapeHtml(weapon.id)}" ${selected}>${escapeHtml(weapon.name)} [${escapeHtml(typeDisplay)}]</option>`;
-        })
-      ].join('');
-
+      const selectedWeapon = getWeaponById(currentWeaponId);
+      const options = [`<option value="">未装備</option>`, ...availableWeapons.map((weapon) => {
+        const selected = weapon.id === currentWeaponId ? 'selected' : '';
+        const typeDisplay = weapon.weaponTypeDisplay || weaponTypeMap.get(weapon.weaponType)?.displayName || weapon.weaponType;
+        const level = getWeaponEnhanceLevel(weapon.id);
+        return `<option value="${escapeHtml(weapon.id)}" ${selected}>${escapeHtml(weapon.name)} [${escapeHtml(typeDisplay)} / 所持 ${escapeHtml(getOwnedWeaponCount(weapon.id))} / +${escapeHtml(level)}]</option>`;
+      })].join('');
       return `
         <div class="info-card" style="margin-top: 12px;">
           <h4 style="margin-top: 0; margin-bottom: 8px;">${escapeHtml(slot.name)} の装備枠</h4>
           <label class="muted" for="equip-${escapeHtml(slot.id)}">武器を選択</label><br>
-          <select id="equip-${escapeHtml(slot.id)}" data-equip-slot="${escapeHtml(slot.id)}" style="width: 100%; margin-top: 8px; padding: 10px; border-radius: 12px; border: 1px solid #2d3966; background: #0f1630; color: #eef2ff;">
-            ${options}
-          </select>
-          <div style="margin-top: 10px;">
-            ${selectedWeapon ? renderSelectedWeaponSummary(selectedWeapon) : '<p class="muted">未装備です。</p>'}
-          </div>
+          <select id="equip-${escapeHtml(slot.id)}" data-equip-slot="${escapeHtml(slot.id)}" style="width: 100%; margin-top: 8px; padding: 10px; border-radius: 12px; border: 1px solid #2d3966; background: #0f1630; color: #eef2ff;">${options}</select>
+          <div style="margin-top: 10px;">${selectedWeapon ? renderSelectedWeaponSummary(selectedWeapon) : '<p class="muted">未装備です。</p>'}</div>
         </div>
       `;
     }).join('')}
   `;
 }
 
+function renderWeaponEnhanceUi(weapons, weaponTypeMap) {
+  const ownedWeapons = weapons.filter((weapon) => getOwnedWeaponCount(weapon.id) > 0);
+  if (!ownedWeapons.length) {
+    return '<h3>武器強化（仮）</h3><p class="muted">所持武器がありません。ガチャで武器を入手するとここに表示されます。</p>';
+  }
+  const items = ownedWeapons.map((weapon) => {
+    const typeDisplay = weapon.weaponTypeDisplay || weaponTypeMap.get(weapon.weaponType)?.displayName || weapon.weaponType;
+    const enhanced = getEffectiveWeaponStats(weapon);
+    const nextCost = enhanced.level >= WEAPON_ENHANCE_MAX ? null : getWeaponEnhanceCost(enhanced.level);
+    const buttonLabel = enhanced.level >= WEAPON_ENHANCE_MAX ? '最大強化済み' : `強化する（${nextCost} コア）`;
+    const disabled = enhanced.level >= WEAPON_ENHANCE_MAX || resourceState.materialCore < nextCost ? 'disabled' : '';
+    return `
+      <div class="info-card" style="margin-top: 12px;">
+        <h4 style="margin-top: 0; margin-bottom: 6px;">${escapeHtml(weapon.name)} <span class="muted">[${escapeHtml(typeDisplay)} / +${escapeHtml(enhanced.level)} / 所持 ${escapeHtml(getOwnedWeaponCount(weapon.id))}]</span></h4>
+        <p class="muted" style="margin: 0;">現在値：HP ${escapeHtml(enhanced.hp)} / ATK ${escapeHtml(enhanced.atk)}</p>
+        <p class="muted" style="margin: 6px 0 0;">強化ルール（仮）：1レベルごとに HP / ATK が +10%、最大 +10。</p>
+        <div class="button-group" style="max-width: none; flex-direction: row; margin-top: 10px;"><button class="text-button weapon-enhance-button" data-weapon-enhance="${escapeHtml(weapon.id)}" ${disabled}>${escapeHtml(buttonLabel)}</button></div>
+      </div>
+    `;
+  }).join('');
+  return `<h3>武器強化（仮）</h3><p class="muted">所持マテリアルコアを使って武器を強化できます。</p>${items}`;
+}
+
 function getEquippedWeaponObjects(weapons) {
-  return Object.values(formationState.equippedWeapons)
-    .map((weaponId) => weapons.find((weapon) => weapon.id === weaponId))
-    .filter(Boolean);
-}
-
-function aggregatePartySkills(equippedWeapons) {
-  const result = {};
-  equippedWeapons.forEach((weapon) => {
-    (weapon.partySkills || []).forEach((skill) => {
-      if (!result[skill.type]) result[skill.type] = { small: 0, middle: 0, large: 0 };
-      if (skill.tier === 'small') result[skill.type].small += 1;
-      if (skill.tier === 'middle') result[skill.type].middle += 1;
-      if (skill.tier === 'large') result[skill.type].large += 1;
-    });
-  });
-
-  Object.keys(result).forEach((skillType) => {
-    const smallToMiddle = Math.floor(result[skillType].small / 2);
-    result[skillType].small = result[skillType].small % 2;
-    result[skillType].middle += smallToMiddle;
-
-    const middleToLarge = Math.floor(result[skillType].middle / 2);
-    result[skillType].middle = result[skillType].middle % 2;
-    result[skillType].large += middleToLarge;
-  });
-
-  return result;
-}
-
-function computeAggregatedSkillRate(skillType, tiers) {
-  const defs = gameData.weapons?.meta?.partySkillDefs?.[skillType]?.tiers;
-  if (!defs) return 0;
-  return (tiers.small * (defs.small?.value || 0)) +
-         (tiers.middle * (defs.middle?.value || 0)) +
-         (tiers.large * (defs.large?.value || 0));
+  return Object.values(formationState.equippedWeapons).map((weaponId) => weapons.find((weapon) => weapon.id === weaponId)).filter(Boolean);
 }
 
 function renderPartySkillSummary(weapons) {
   const equipped = getEquippedWeaponObjects(weapons);
-  const equippedList = equipped.length
-    ? `<ul>${equipped.map((weapon) => `<li>${escapeHtml(weapon.name)} (${escapeHtml(weapon.id)})</li>`).join('')}</ul>`
-    : '<p class="muted">まだ武器が装備されていません。</p>';
-
+  const equippedList = equipped.length ? `<ul>${equipped.map((weapon) => `<li>${escapeHtml(weapon.name)} (+${escapeHtml(getWeaponEnhanceLevel(weapon.id))})</li>`).join('')}</ul>` : '<p class="muted">まだ武器が装備されていません。</p>';
   const aggregated = aggregatePartySkills(equipped);
   const summaryItems = Object.entries(aggregated).map(([skillType, tiers]) => {
     const parts = [];
@@ -598,57 +1350,20 @@ function renderPartySkillSummary(weapons) {
     if (tiers.small > 0) parts.push(`小 × ${tiers.small}`);
     const totalRate = computeAggregatedSkillRate(skillType, tiers);
     const name = skillType === 'atkUp' ? '攻撃力アップ' : skillType === 'hpUp' ? '体力アップ' : skillType;
-    return `
-      <li>
-        <strong>${escapeHtml(name)}</strong>：${escapeHtml(parts.join(' / ') || 'なし')}
-        <br><span class="muted">最終効果量：${escapeHtml(Math.round(totalRate * 100))}%</span>
-      </li>
-    `;
+    return `<li><strong>${escapeHtml(name)}</strong>：${escapeHtml(parts.join(' / ') || 'なし')}<br><span class="muted">最終効果量：${escapeHtml(Math.round(totalRate * 100))}%</span></li>`;
   }).join('');
-
-  return `
-    <h3>装備中のパーティスキル合計</h3>
-    <p class="muted">同じスキルは同段階2つで1段階上へ昇格する前提で集計しています。</p>
-    <h4>現在の装備</h4>
-    ${equippedList}
-    <h4>集計結果</h4>
-    ${summaryItems ? `<ul>${summaryItems}</ul>` : '<p class="muted">有効なパーティスキルはありません。</p>'}
-  `;
+  return `<h3>装備中のパーティスキル合計</h3><p class="muted">同じスキルは同段階2つで1段階上へ昇格する前提で集計しています。</p><h4>現在の装備</h4>${equippedList}<h4>集計結果</h4>${summaryItems ? `<ul>${summaryItems}</ul>` : '<p class="muted">有効なパーティスキルはありません。</p>'}`;
 }
 
 function renderFinalStatsSummary(characters, weapons) {
-  const slots = [
-    { id: 'protagonist', name: '主人公', character: null },
-    ...characters.map((char) => ({ id: char.id, name: char.name, character: char }))
-  ];
-
-  const equipped = getEquippedWeaponObjects(weapons);
-  const aggregated = aggregatePartySkills(equipped);
-  const atkBonusRate = computeAggregatedSkillRate('atkUp', aggregated.atkUp || { small: 0, middle: 0, large: 0 });
-  const hpBonusRate = computeAggregatedSkillRate('hpUp', aggregated.hpUp || { small: 0, middle: 0, large: 0 });
-
+  const slots = [{ id: 'protagonist', name: '主人公', character: null }, ...characters.map((char) => ({ id: char.id, name: char.name, character: char }))];
   return `
     <h3>最終HP / 最終ATK</h3>
-    <p class="muted">現在は「基礎値 + 武器値」に、装備中のパーティスキル（HPアップ / ATKアップ）を適用した暫定表示です。女神 / 友情 / 聖獣補正はまだ反映していません。</p>
-    <p class="muted">現在のパーティ補正：HP +${escapeHtml(Math.round(hpBonusRate * 100))}% / ATK +${escapeHtml(Math.round(atkBonusRate * 100))}%</p>
+    <p class="muted">現在装備をもとに、最終値を表示しています。</p>
     <ul>
       ${slots.map((slot) => {
-        const weapon = weapons.find((item) => item.id === formationState.equippedWeapons[slot.id]);
-        const baseHp = slot.character?.displayStats?.baseHp ?? 0;
-        const baseAtk = slot.character?.displayStats?.baseAtk ?? 0;
-        const weaponHp = weapon?.baseStats?.hp ?? 0;
-        const weaponAtk = weapon?.baseStats?.atk ?? 0;
-        const finalHp = Math.floor((baseHp + weaponHp) * (1 + hpBonusRate));
-        const finalAtk = Math.floor((baseAtk + weaponAtk) * (1 + atkBonusRate));
-        const note = slot.id === 'protagonist'
-          ? '※ 主人公の基礎HP / ATK は未設定のため、武器補正 + パーティスキルのみ仮反映'
-          : `基礎HP ${baseHp} + 武器HP ${weaponHp}, 基礎ATK ${baseAtk} + 武器ATK ${weaponAtk}`;
-        return `
-          <li>
-            <strong>${escapeHtml(slot.name)}</strong>：最終HP ${escapeHtml(finalHp)} / 最終ATK ${escapeHtml(finalAtk)}
-            <br><span class="muted">${escapeHtml(note)}</span>
-          </li>
-        `;
+        const stats = computeFinalStatsForSlot(slot.id, formationState.equippedWeapons);
+        return `<li><strong>${escapeHtml(slot.name)}</strong>：最終HP ${escapeHtml(stats.finalHp)} / 最終ATK ${escapeHtml(stats.finalAtk)} <span class="muted">(${escapeHtml(stats.weaponName)})</span></li>`;
       }).join('')}
     </ul>
   `;
@@ -656,11 +1371,11 @@ function renderFinalStatsSummary(characters, weapons) {
 
 function renderSaveStateSummary() {
   return `
-    <h3>装備状態の保存</h3>
-    <p class="muted">装備変更時に自動保存されます。必要に応じて手動保存 / 読み込み / リセットもできます。</p>
+    <h3>データ保存</h3>
+    <p class="muted">装備変更・報酬獲得・武器強化・ガチャ・売却時に自動保存されます。必要に応じて手動保存 / 読み込み / リセットもできます。</p>
     <div class="button-group" style="max-width: none; flex-direction: row; flex-wrap: wrap; margin-top: 12px;">
-      <button class="text-button" id="save-formation-button">いまの装備を保存</button>
-      <button class="text-button" id="load-formation-button">保存した装備を読み込む</button>
+      <button class="text-button" id="save-formation-button">いまの状態を保存</button>
+      <button class="text-button" id="load-formation-button">保存した状態を読み込む</button>
       <button class="text-button" id="reset-formation-button">装備をリセット</button>
     </div>
     <p class="muted" style="margin-top: 12px;">保存キー：${escapeHtml(STORAGE_KEY)}</p>
@@ -673,27 +1388,33 @@ function attachEquipmentEvents(weapons) {
       const slotId = select.getAttribute('data-equip-slot');
       formationState.equippedWeapons[slotId] = select.value;
       sanitizeEquippedWeapons();
-      saveFormationState();
+      saveGameState();
       renderFormationSection();
     });
+  });
+  document.querySelectorAll('[data-weapon-enhance]').forEach((button) => {
+    button.addEventListener('click', () => tryEnhanceWeapon(button.getAttribute('data-weapon-enhance')));
   });
 }
 
 function attachSaveButtons() {
-  document.getElementById('save-formation-button')?.addEventListener('click', () => saveFormationState(true));
+  document.getElementById('save-formation-button')?.addEventListener('click', () => saveGameState(true));
   document.getElementById('load-formation-button')?.addEventListener('click', () => {
     const loaded = loadSaveData();
     if (loaded) {
+      sanitizeOwnedWeapons();
+      sanitizeWeaponEnhancements();
+      sanitizeProtectedWeapons();
       sanitizeEquippedWeapons();
-      renderFormationSection();
-      alert('保存済みの装備状態を読み込みました。');
+      rerenderAllSections();
+      alert('保存済みデータを読み込みました。');
     } else {
       alert('保存データがありません。');
     }
   });
   document.getElementById('reset-formation-button')?.addEventListener('click', () => {
     resetFormationState();
-    saveFormationState();
+    saveGameState();
     renderFormationSection();
     alert('装備状態をリセットしました。');
   });
@@ -702,568 +1423,72 @@ function attachSaveButtons() {
 function renderFormationSection() {
   const formationScreen = document.getElementById('screen-formation');
   if (!formationScreen || !gameData.characters || !gameData.weapons) return;
-
   const container = formationScreen.querySelector('.screen-inner');
   if (!container) return;
   clearDynamicCards(container);
 
-  const characters = gameData.characters.characters || [];
-  const weapons = gameData.weapons.weapons || [];
-  const weaponTypeMap = new Map(Object.entries(gameData.weapons.meta?.weaponTypeRules || {}));
+  const characters = getCharactersList();
+  const weapons = getWeaponsList();
+  const weaponTypeMap = getWeaponTypeMap();
 
+  const resourceCard = createInfoCard();
+  resourceCard.innerHTML = renderResourceSummaryCard('現在の所持数');
   const statsCard = createInfoCard();
-  statsCard.innerHTML = `
-    <h3>初期ステータス</h3>
-    <ul>
-      ${characters.map((char) => `<li><strong>${escapeHtml(char.name)}</strong>：HP ${escapeHtml(char.displayStats?.baseHp ?? '-')} / ATK ${escapeHtml(char.displayStats?.baseAtk ?? '-')}</li>`).join('')}
-    </ul>
-    <p class="muted">characters.json の displayStats を表示しています。</p>
-  `;
-
+  statsCard.innerHTML = `<h3>初期ステータス</h3><ul>${characters.map((char) => `<li><strong>${escapeHtml(char.name)}</strong>：HP ${escapeHtml(char.displayStats?.baseHp ?? '-')} / ATK ${escapeHtml(char.displayStats?.baseAtk ?? '-')}</li>`).join('')}</ul><p class="muted">characters.json の displayStats を表示しています。</p>`;
   const skillCard = createInfoCard();
-  skillCard.innerHTML = `
-    <h3>スキル解放ルール</h3>
-    <ul>
-      <li>Lv1：スキル1</li>
-      <li>Lv30：スキル2</li>
-      <li>Lv50：スキル3</li>
-      <li>Lv75：スキル4</li>
-      <li>必殺技：初期から使用可</li>
-    </ul>
-  `;
-
+  skillCard.innerHTML = '<h3>スキル解放ルール</h3><ul><li>Lv1：スキル1</li><li>Lv30：スキル2</li><li>Lv50：スキル3</li><li>Lv75：スキル4</li><li>必殺技：初期から使用可</li></ul>';
   const equipmentCard = createInfoCard();
   equipmentCard.innerHTML = renderEquipmentUi(characters, weapons, weaponTypeMap);
-
   const finalStatsCard = createInfoCard();
   finalStatsCard.innerHTML = renderFinalStatsSummary(characters, weapons);
-
   const totalSkillCard = createInfoCard();
   totalSkillCard.innerHTML = renderPartySkillSummary(weapons);
-
   const saveCard = createInfoCard();
   saveCard.innerHTML = renderSaveStateSummary();
+  const enhanceCard = createInfoCard();
+  enhanceCard.innerHTML = renderWeaponEnhanceUi(weapons, weaponTypeMap);
 
-  const grouped = groupWeaponsByRarity(weapons);
+  const ownedOnly = weapons.filter((weapon) => getOwnedWeaponCount(weapon.id) > 0);
+  const grouped = { 1: [], 2: [], 3: [] };
+  ownedOnly.forEach((weapon) => { grouped[weapon.rarity || 1].push(weapon); });
   const weaponListCard = createInfoCard();
   weaponListCard.innerHTML = `
-    <h3>武器一覧（weapons.json 読み込み）</h3>
-    ${renderWeaponGroupHtml(grouped[1] || [], 1, weaponTypeMap)}
-    ${renderWeaponGroupHtml(grouped[2] || [], 2, weaponTypeMap)}
-    ${renderWeaponGroupHtml(grouped[3] || [], 3, weaponTypeMap)}
-    <p class="muted">武器は主人公 + メンバー3人の合計4本装備、パーティスキルは全体へ適用されます。</p>
+    <h3>所持武器一覧</h3>
+    ${renderWeaponGroupHtml(grouped[1], 1, weaponTypeMap)}
+    ${renderWeaponGroupHtml(grouped[2], 2, weaponTypeMap)}
+    ${renderWeaponGroupHtml(grouped[3], 3, weaponTypeMap)}
+    <p class="muted">所持している武器のみ表示しています。</p>
   `;
 
+  container.appendChild(resourceCard);
   container.appendChild(statsCard);
   container.appendChild(skillCard);
   container.appendChild(equipmentCard);
   container.appendChild(finalStatsCard);
   container.appendChild(totalSkillCard);
   container.appendChild(saveCard);
+  container.appendChild(enhanceCard);
   container.appendChild(weaponListCard);
 
   attachEquipmentEvents(weapons);
   attachSaveButtons();
 }
 
-function groupWeaponsByRarity(weapons) {
-  return weapons.reduce((acc, weapon) => {
-    const rarity = weapon.rarity || 1;
-    if (!acc[rarity]) acc[rarity] = [];
-    acc[rarity].push(weapon);
-    return acc;
-  }, {});
-}
-
 function renderWeaponGroupHtml(weapons, rarity, weaponTypeMap) {
-  if (!weapons.length) return `<h4>★${rarity}</h4><p class="muted">データなし</p>`;
-
+  if (!weapons || !weapons.length) return `<h4>★${rarity}</h4><p class="muted">なし</p>`;
   return `
     <h4>★${rarity}</h4>
     <ul>
       ${weapons.map((weapon) => {
         const typeDisplay = weapon.weaponTypeDisplay || weaponTypeMap.get(weapon.weaponType)?.displayName || weapon.weaponType;
-        const hp = weapon.baseStats?.hp ?? 0;
-        const atk = weapon.baseStats?.atk ?? 0;
-        const skills = (weapon.partySkills || []).map((skill) => `${skill.displayName}（${skill.tierLabel}）`).join(' / ') || 'なし';
-        return `
-          <li>
-            <strong>${escapeHtml(weapon.name)}</strong>
-            <span class="muted">[${escapeHtml(typeDisplay)} / ${escapeHtml(weapon.id)}]</span><br>
-            <span class="muted">HP ${escapeHtml(hp)} / ATK ${escapeHtml(atk)}</span><br>
-            <span class="muted">スキル：${escapeHtml(skills)}</span>
-          </li>
-        `;
+        const enhanced = getEffectiveWeaponStats(weapon);
+        const owned = getOwnedWeaponCount(weapon.id);
+        const sellable = getSellableWeaponCount(weapon.id);
+        const marks = `${isWeaponFavorite(weapon.id) ? ' / お気に入り' : ''}${isWeaponLocked(weapon.id) ? ' / ロック' : ''}`;
+        return `<li><strong>${escapeHtml(weapon.name)}</strong> <span class="muted">[${escapeHtml(typeDisplay)} / 所持 ${escapeHtml(owned)} / 売却可 ${escapeHtml(sellable)} / +${escapeHtml(enhanced.level)}${escapeHtml(marks)}]</span><br><span class="muted">HP ${escapeHtml(enhanced.hp)} / ATK ${escapeHtml(enhanced.atk)}</span></li>`;
       }).join('')}
     </ul>
   `;
-}
-
-// -------------------------
-// バトル最小UI + 1ターン実行
-// -------------------------
-
-function createBattleRuntime(battle) {
-  const characters = gameData.characters?.characters || [];
-  const weapons = gameData.weapons?.weapons || [];
-  const enemyTemplates = new Map((gameData.battles?.enemyTemplates || []).map((enemy) => [enemy.id, enemy]));
-
-  const party = [];
-
-  const protagonistWeapon = weapons.find((item) => item.id === formationState.equippedWeapons.protagonist);
-  const equipped = getEquippedWeaponObjects(weapons);
-  const aggregated = aggregatePartySkills(equipped);
-  const atkBonusRate = computeAggregatedSkillRate('atkUp', aggregated.atkUp || { small: 0, middle: 0, large: 0 });
-  const hpBonusRate = computeAggregatedSkillRate('hpUp', aggregated.hpUp || { small: 0, middle: 0, large: 0 });
-  const protagonistBaseHp = 1;
-  const protagonistBaseAtk = 1;
-  const protagonistHp = Math.max(1, Math.floor((protagonistBaseHp + (protagonistWeapon?.baseStats?.hp ?? 0)) * (1 + hpBonusRate)));
-  const protagonistAtk = Math.max(1, Math.floor((protagonistBaseAtk + (protagonistWeapon?.baseStats?.atk ?? 0)) * (1 + atkBonusRate)));
-
-  party.push({
-    id: 'protagonist',
-    name: '主人公',
-    currentHp: protagonistHp,
-    maxHp: protagonistHp,
-    atk: protagonistAtk,
-    guarding: false,
-    alive: true,
-    gauge: 0
-  });
-
-  characters.forEach((char) => {
-    const result = computeUnitFinalStats(char, char.id, weapons);
-    party.push({
-      id: char.id,
-      name: char.name,
-      currentHp: Math.max(1, result.finalHp),
-      maxHp: Math.max(1, result.finalHp),
-      atk: Math.max(1, result.finalAtk),
-      guarding: false,
-      alive: true,
-      gauge: 0
-    });
-  });
-
-  const enemies = (battle.enemyGroup || []).map((enemyRef) => {
-    const tmpl = enemyTemplates.get(enemyRef.enemyId);
-    const hp = Math.max(1, tmpl?.displayStats?.hp ?? 1);
-    const atk = Math.max(1, tmpl?.displayStats?.atk ?? 1);
-    return {
-      id: enemyRef.instanceId,
-      templateId: enemyRef.enemyId,
-      name: tmpl?.name || enemyRef.enemyId,
-      currentHp: hp,
-      maxHp: hp,
-      atk,
-      alive: true,
-      normalAttackName: tmpl?.normalAttack?.name || '通常攻撃',
-      firstSkillName: tmpl?.skills?.[0]?.name || null
-    };
-  });
-
-  return { party, enemies };
-}
-
-function openBattleUi(battleId) {
-  const battle = (gameData.battles?.battles || []).find((item) => item.id === battleId);
-  if (!battle) return;
-
-  battleUiState.currentBattleId = battleId;
-  battleUiState.protagonistAction = 'wait';
-  battleUiState.turnCount = 0;
-  battleUiState.turnLog = [];
-  battleUiState.runtime = createBattleRuntime(battle);
-  battleUiState.result = null;
-  battleUiState.partyChoices = {
-    char_towa: { useSkill: false, useBurst: false, action: 'attack' },
-    char_hinano: { useSkill: false, useBurst: false, action: 'attack' },
-    char_suzu: { useSkill: false, useBurst: false, action: 'attack' }
-  };
-
-  renderBattleUi();
-}
-
-function getAliveTarget(units) {
-  return units.find((unit) => unit.alive && unit.currentHp > 0) || null;
-}
-
-function applyDamage(target, damage) {
-  if (!target || !target.alive) return 0;
-  const before = target.currentHp;
-  target.currentHp = Math.max(0, target.currentHp - damage);
-  if (target.currentHp <= 0) {
-    target.alive = false;
-    target.currentHp = 0;
-  }
-  return before - target.currentHp;
-}
-
-function calculateSimpleDamage(atk, options = {}) {
-  let damage = Math.max(1, Math.floor(atk));
-  if (options.useSkill) damage = Math.max(1, Math.floor(damage * 1.2));
-  if (options.useBurst) damage = Math.max(1, Math.floor(damage * 1.7));
-  if (options.targetGuarding) damage = Math.max(1, Math.floor(damage * 0.2));
-  return damage;
-}
-
-function buildBattleRewardResult(battle, isVictory) {
-  if (!isVictory) {
-    return {
-      status: 'defeat',
-      title: '敗北',
-      lines: ['報酬はありません。装備や行動を見直して再挑戦しましょう。'],
-      rewards: { materialCore: 0, exp: 0 },
-      newlyCleared: false
-    };
-  }
-
-  const newlyCleared = !progressState.clearedBattles.includes(battle.id);
-  let materialCore = 0;
-  let exp = 0;
-  const lines = [];
-
-  if (newlyCleared) {
-    materialCore += battle.firstClearReward?.materialCore ?? 0;
-    exp += battle.firstClearReward?.exp ?? 0;
-    lines.push(`初回クリア報酬：マテリアルコア ${battle.firstClearReward?.materialCore ?? 0} / EXP ${battle.firstClearReward?.exp ?? 0}`);
-
-    if (battle.chapterClearReward?.materialCore) {
-      materialCore += battle.chapterClearReward.materialCore;
-      lines.push(`章クリア報酬：マテリアルコア ${battle.chapterClearReward.materialCore}`);
-    }
-
-    progressState.clearedBattles.push(battle.id);
-    saveGameState();
-  } else {
-    exp += battle.repeatReward?.exp ?? 0;
-    lines.push(`再挑戦報酬：EXP ${battle.repeatReward?.exp ?? 0}`);
-  }
-
-  lines.push('※ 現在は報酬表示のみです。所持コアや経験値プールへの本保存は後続実装です。');
-
-  return {
-    status: 'victory',
-    title: '勝利',
-    lines,
-    rewards: { materialCore, exp },
-    newlyCleared
-  };
-}
-
-function simulateBattleTurn() {
-  const battle = (gameData.battles?.battles || []).find((item) => item.id === battleUiState.currentBattleId);
-  const runtime = battleUiState.runtime;
-  if (!battle || !runtime) return;
-  if (battleUiState.result) return;
-
-  battleUiState.turnCount += 1;
-  const lines = [];
-
-  runtime.party.forEach((unit) => {
-    unit.guarding = false;
-  });
-
-  if (battleUiState.protagonistAction === 'skill') {
-    lines.push('主人公は司令スキルを発動した。');
-  } else {
-    lines.push('主人公は待機した。');
-  }
-
-  ['char_towa', 'char_hinano', 'char_suzu'].forEach((memberId) => {
-    const choice = battleUiState.partyChoices[memberId];
-    const actor = runtime.party.find((unit) => unit.id === memberId);
-    if (!choice || !actor || !actor.alive) return;
-
-    if (choice.action === 'guard') {
-      actor.guarding = true;
-      lines.push(`${actor.name} は防御を選択し、被ダメージを大きく軽減する構えを取った。`);
-      return;
-    }
-
-    const target = getAliveTarget(runtime.enemies);
-    if (!target) {
-      lines.push(`${actor.name} は攻撃対象がいないため行動を終了した。`);
-      return;
-    }
-
-    const modifierText = [];
-    if (choice.useSkill) modifierText.push('スキル');
-    if (choice.useBurst) modifierText.push('必殺');
-    const damage = calculateSimpleDamage(actor.atk, { useSkill: choice.useSkill, useBurst: choice.useBurst, targetGuarding: false });
-    const actual = applyDamage(target, damage);
-    const prefix = modifierText.length ? `${modifierText.join(' + ')}付きの攻撃` : '通常攻撃';
-    lines.push(`${actor.name} は ${prefix} で ${target.name} に ${actual} ダメージ。`);
-    if (!target.alive) lines.push(`${target.name} は撃破された。`);
-  });
-
-  runtime.enemies.forEach((enemy, index) => {
-    if (!enemy.alive) return;
-
-    const target = getAliveTarget(runtime.party);
-    if (!target) {
-      lines.push(`${enemy.name} は攻撃対象がいない。`);
-      return;
-    }
-
-    const useSkill = (battleUiState.turnCount + index) % 2 === 0 && !!enemy.firstSkillName;
-    const damage = calculateSimpleDamage(enemy.atk, { useSkill, useBurst: false, targetGuarding: target.guarding });
-    const actual = applyDamage(target, damage);
-    const actionName = useSkill ? enemy.firstSkillName : enemy.normalAttackName;
-    lines.push(`${enemy.name} は ${actionName} で ${target.name} に ${actual} ダメージ。`);
-    if (target.guarding) lines.push(`${target.name} は防御中だったためダメージを軽減した。`);
-    if (!target.alive) lines.push(`${target.name} は戦闘不能になった。`);
-  });
-
-  const allEnemiesDown = runtime.enemies.every((enemy) => !enemy.alive);
-  const allPartyDown = runtime.party.every((unit) => !unit.alive);
-
-  if (allEnemiesDown) {
-    lines.push('敵が全滅した。味方の勝利。');
-    battleUiState.result = buildBattleRewardResult(battle, true);
-    lines.push(...battleUiState.result.lines);
-    renderAdventureSection();
-  } else if (allPartyDown) {
-    lines.push('味方が全滅した。敗北。');
-    battleUiState.result = buildBattleRewardResult(battle, false);
-    lines.push(...battleUiState.result.lines);
-  } else {
-    lines.push('ターン終了。次ターンへ。');
-  }
-
-  lines.push('※ 現在は簡易ダメージ版です。CT・必殺ゲージ・状態異常・厳密な防御計算は未実装です。');
-
-  battleUiState.turnLog.unshift({ turn: battleUiState.turnCount, lines });
-  battleUiState.turnLog = battleUiState.turnLog.slice(0, 8);
-}
-
-function renderBattleResultPanel() {
-  if (!battleUiState.result) return '';
-
-  const result = battleUiState.result;
-  const color = result.status === 'victory' ? '#7cf3d0' : '#ff8f8f';
-  return `
-    <div class="info-card" style="margin-top: 12px; border-color: ${color};">
-      <h4 style="margin-top: 0; color: ${color};">${escapeHtml(result.title)}</h4>
-      <p class="muted">獲得報酬：マテリアルコア ${escapeHtml(result.rewards.materialCore)} / EXP ${escapeHtml(result.rewards.exp)}</p>
-      <ul>${result.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
-    </div>
-  `;
-}
-
-function renderBattleUi() {
-  const battleUiCard = document.getElementById('battle-ui-card');
-  if (!battleUiCard) return;
-
-  const battle = (gameData.battles?.battles || []).find((item) => item.id === battleUiState.currentBattleId);
-  const runtime = battleUiState.runtime;
-  if (!battle || !runtime) {
-    battleUiCard.innerHTML = `
-      <h3>バトル最小UI</h3>
-      <p class="muted">「バトルUIを開く」を押すと、ここに主人公 / 味方 / 敵 / 行動ボタンの最小UIが表示されます。</p>
-    `;
-    return;
-  }
-
-  const characters = gameData.characters?.characters || [];
-  const weapons = gameData.weapons?.weapons || [];
-
-  const playerUnitRows = [
-    renderBattleProtagonistRow(runtime.party.find((unit) => unit.id === 'protagonist'), weapons),
-    ...characters.map((char) => renderBattleMemberRow(char, weapons, runtime.party.find((unit) => unit.id === char.id)))
-  ].join('');
-
-  const enemyRows = runtime.enemies.map((enemy) => renderEnemyRowFromRuntime(enemy)).join('');
-
-  battleUiCard.innerHTML = `
-    <h3>バトル最小UI：${escapeHtml(battle.title)}</h3>
-    <p class="muted">主人公 → 味方（編成順）→ 敵 の流れを確認するための最小UIです。今回は 1ターン分の簡易ダメージ実行と、勝敗後の報酬表示まで行います。</p>
-
-    <div class="info-card" style="margin-top: 12px;">
-      <h4 style="margin-top: 0;">味方ユニット</h4>
-      ${playerUnitRows}
-    </div>
-
-    <div class="info-card" style="margin-top: 12px;">
-      <h4 style="margin-top: 0;">敵ユニット</h4>
-      ${enemyRows}
-    </div>
-
-    <div class="info-card" style="margin-top: 12px;">
-      <h4 style="margin-top: 0;">現在の行動プレビュー</h4>
-      ${renderBattleChoiceSummary()}
-    </div>
-
-    <div class="info-card" style="margin-top: 12px;">
-      <h4 style="margin-top: 0;">1ターン分の実行ログ</h4>
-      ${renderBattleLog()}
-    </div>
-
-    ${renderBattleResultPanel()}
-
-    <div class="button-group" style="margin-top: 18px; max-width: none; flex-direction: row; flex-wrap: wrap;">
-      <button class="text-button" id="battle-apply-plan" ${battleUiState.result ? 'disabled' : ''}>この行動で1ターン進む</button>
-      <button class="text-button" id="battle-reset-plan">バトルをリセット</button>
-      <button class="text-button" id="battle-close-ui">バトルUIを閉じる</button>
-    </div>
-  `;
-
-  attachBattleUiEvents();
-}
-
-function renderBattleProtagonistRow(protagonist, weapons) {
-  const weapon = weapons.find((item) => item.id === formationState.equippedWeapons.protagonist);
-  const skills = weapon ? (weapon.partySkills || []).map((skill) => `${skill.displayName}（${skill.tierLabel}）`).join(' / ') : '未装備';
-  const hp = protagonist?.currentHp ?? 0;
-  const maxHp = protagonist?.maxHp ?? 0;
-  const atk = protagonist?.atk ?? 0;
-
-  return `
-    <div class="info-card" style="margin-top: 10px;">
-      <h5 style="margin: 0 0 8px;">主人公</h5>
-      <p class="muted" style="margin: 0 0 8px;">HP ${escapeHtml(hp)} / ${escapeHtml(maxHp)} / ATK ${escapeHtml(atk)}</p>
-      <p class="muted" style="margin: 0 0 8px;">装備スキル：${escapeHtml(skills)}</p>
-      <div class="button-group" style="max-width: none; flex-direction: row; flex-wrap: wrap; margin-top: 8px;">
-        <button class="text-button battle-protagonist-action ${battleUiState.protagonistAction === 'skill' ? 'is-selected' : ''}" data-protagonist-action="skill">スキル発動</button>
-        <button class="text-button battle-protagonist-action ${battleUiState.protagonistAction === 'wait' ? 'is-selected' : ''}" data-protagonist-action="wait">待機</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderBattleMemberRow(char, weapons, runtimeUnit) {
-  const choice = battleUiState.partyChoices[char.id] || { useSkill: false, useBurst: false, action: 'attack' };
-  const currentHp = runtimeUnit?.currentHp ?? 0;
-  const maxHp = runtimeUnit?.maxHp ?? 0;
-  const atk = runtimeUnit?.atk ?? 0;
-  const weapon = weapons.find((item) => item.id === formationState.equippedWeapons[char.id]);
-
-  return `
-    <div class="info-card" style="margin-top: 10px;">
-      <h5 style="margin: 0 0 8px;">${escapeHtml(char.name)}</h5>
-      <p class="muted" style="margin: 0 0 8px;">HP ${escapeHtml(currentHp)} / ${escapeHtml(maxHp)} / ATK ${escapeHtml(atk)}</p>
-      <p class="muted" style="margin: 0 0 8px;">装備：${escapeHtml(weapon?.name || '未装備')}</p>
-      <div class="button-group" style="max-width: none; flex-direction: row; flex-wrap: wrap; margin-top: 8px;">
-        <button class="text-button battle-member-toggle ${choice.useSkill ? 'is-selected' : ''}" data-member-id="${escapeHtml(char.id)}" data-toggle-type="skill">スキル ${choice.useSkill ? 'ON' : 'OFF'}</button>
-        <button class="text-button battle-member-toggle ${choice.useBurst ? 'is-selected' : ''}" data-member-id="${escapeHtml(char.id)}" data-toggle-type="burst">必殺 ${choice.useBurst ? 'ON' : 'OFF'}</button>
-        <button class="text-button battle-member-action ${choice.action === 'attack' ? 'is-selected' : ''}" data-member-id="${escapeHtml(char.id)}" data-action-type="attack">攻撃</button>
-        <button class="text-button battle-member-action ${choice.action === 'guard' ? 'is-selected' : ''}" data-member-id="${escapeHtml(char.id)}" data-action-type="guard">防御</button>
-      </div>
-    </div>
-  `;
-}
-
-function renderEnemyRowFromRuntime(enemy) {
-  return `
-    <div class="info-card" style="margin-top: 10px;">
-      <h5 style="margin: 0 0 8px;">${escapeHtml(enemy.name)} <span class="muted">(${escapeHtml(enemy.id)})</span></h5>
-      <p class="muted" style="margin: 0 0 6px;">HP ${escapeHtml(enemy.currentHp)} / ${escapeHtml(enemy.maxHp)} / ATK ${escapeHtml(enemy.atk)}</p>
-      <p class="muted" style="margin: 0;">通常：${escapeHtml(enemy.normalAttackName)} / スキル：${escapeHtml(enemy.firstSkillName || 'なし')}</p>
-    </div>
-  `;
-}
-
-function renderBattleChoiceSummary() {
-  const list = [`<li><strong>主人公</strong>：${battleUiState.protagonistAction === 'skill' ? 'スキル発動' : '待機'}</li>`];
-
-  Object.entries(battleUiState.partyChoices).forEach(([memberId, choice]) => {
-    const char = (gameData.characters?.characters || []).find((item) => item.id === memberId);
-    const name = char?.name || memberId;
-    list.push(`<li><strong>${escapeHtml(name)}</strong>：${escapeHtml(choice.useSkill ? 'スキルON' : 'スキルOFF')} / ${escapeHtml(choice.useBurst ? '必殺ON' : '必殺OFF')} / ${escapeHtml(choice.action === 'guard' ? '防御' : '攻撃')}</li>`);
-  });
-
-  return `<ul>${list.join('')}</ul>`;
-}
-
-function renderBattleLog() {
-  if (!battleUiState.turnLog.length) {
-    return '<p class="muted">まだ実行ログはありません。「この行動で1ターン進む」を押すと、1ターン分の簡易実行ログが表示されます。</p>';
-  }
-
-  return battleUiState.turnLog.map((turn) => `
-    <div class="info-card" style="margin-top: 8px; background: #0f1630;">
-      <h5 style="margin: 0 0 8px;">ターン ${escapeHtml(turn.turn)}</h5>
-      <ul>${turn.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
-    </div>
-  `).join('');
-}
-
-function attachBattleUiEvents() {
-  document.querySelectorAll('[data-protagonist-action]').forEach((button) => {
-    button.addEventListener('click', () => {
-      battleUiState.protagonistAction = button.getAttribute('data-protagonist-action');
-      renderBattleUi();
-    });
-  });
-
-  document.querySelectorAll('[data-toggle-type]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const memberId = button.getAttribute('data-member-id');
-      const toggleType = button.getAttribute('data-toggle-type');
-      if (!battleUiState.partyChoices[memberId]) return;
-      if (toggleType === 'skill') battleUiState.partyChoices[memberId].useSkill = !battleUiState.partyChoices[memberId].useSkill;
-      if (toggleType === 'burst') battleUiState.partyChoices[memberId].useBurst = !battleUiState.partyChoices[memberId].useBurst;
-      renderBattleUi();
-    });
-  });
-
-  document.querySelectorAll('[data-action-type]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const memberId = button.getAttribute('data-member-id');
-      const actionType = button.getAttribute('data-action-type');
-      if (!battleUiState.partyChoices[memberId]) return;
-      battleUiState.partyChoices[memberId].action = actionType;
-      renderBattleUi();
-    });
-  });
-
-  document.getElementById('battle-apply-plan')?.addEventListener('click', () => {
-    simulateBattleTurn();
-    renderBattleUi();
-  });
-
-  document.getElementById('battle-reset-plan')?.addEventListener('click', () => {
-    if (!battleUiState.currentBattleId) return;
-    openBattleUi(battleUiState.currentBattleId);
-  });
-
-  document.getElementById('battle-close-ui')?.addEventListener('click', () => {
-    battleUiState.currentBattleId = null;
-    battleUiState.turnCount = 0;
-    battleUiState.turnLog = [];
-    battleUiState.runtime = null;
-    battleUiState.result = null;
-    const battleUiCard = document.getElementById('battle-ui-card');
-    if (battleUiCard) {
-      battleUiCard.innerHTML = `
-        <h3>バトル最小UI</h3>
-        <p class="muted">「バトルUIを開く」を押すと、ここに主人公 / 味方 / 敵 / 行動ボタンの最小UIが表示されます。</p>
-      `;
-    }
-  });
-}
-
-// -------------------------
-// 補助関数（戦闘用最終値計算）
-// -------------------------
-
-function computeUnitFinalStats(char, slotId, weapons) {
-  const weapon = weapons.find((item) => item.id === formationState.equippedWeapons[slotId]);
-  const equipped = getEquippedWeaponObjects(weapons);
-  const aggregated = aggregatePartySkills(equipped);
-  const atkBonusRate = computeAggregatedSkillRate('atkUp', aggregated.atkUp || { small: 0, middle: 0, large: 0 });
-  const hpBonusRate = computeAggregatedSkillRate('hpUp', aggregated.hpUp || { small: 0, middle: 0, large: 0 });
-
-  const baseHp = char?.displayStats?.baseHp ?? 0;
-  const baseAtk = char?.displayStats?.baseAtk ?? 0;
-  const weaponHp = weapon?.baseStats?.hp ?? 0;
-  const weaponAtk = weapon?.baseStats?.atk ?? 0;
-
-  return {
-    finalHp: Math.floor((baseHp + weaponHp) * (1 + hpBonusRate)),
-    finalAtk: Math.floor((baseAtk + weaponAtk) * (1 + atkBonusRate)),
-    weaponName: weapon?.name || ''
-  };
 }
 
 // -------------------------
@@ -1272,5 +1497,14 @@ function computeUnitFinalStats(char, slotId, weapons) {
 
 document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
-  bootstrapGameData();
+  bootstrapGameData().then((ok) => {
+    if (!ok) return;
+    initializeStarterWeaponsIfNeeded();
+    sanitizeOwnedWeapons();
+    sanitizeWeaponEnhancements();
+    sanitizeProtectedWeapons();
+    sanitizeEquippedWeapons();
+    saveGameState();
+    rerenderAllSections();
+  });
 });
